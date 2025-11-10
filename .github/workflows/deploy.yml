@@ -1,4 +1,4 @@
-name: Node.js CI/CD on Amazon Linux (EC2 Deployment)
+name: Node.js CI/CD (EC2 Deployment - Ubuntu)
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -17,34 +16,48 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
+      # optional: run tests / lint here if you want before deploying
+      - name: Install dependencies (local, optional)
         run: npm install
 
       - name: Copy project files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.REMOTE_HOST }}
-          username: ec2-user
+          username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "./"
-          target: "/home/ec2-user/deployment"
+          target: "/home/ubuntu/deployment"
+          port: 22
+          timeout: 60s
+          overwrite: true
+          debug: false
 
       - name: Restart Node.js app using PM2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.REMOTE_HOST }}
-          username: ec2-user
+          username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
           script: |
-            cd /home/ec2-user/deployment
+            set -eux
+
+            cd /home/ubuntu/deployment
+
+            # ensure correct NODE_ENV and install production deps
+            export NODE_ENV=production
             npm ci --only=production
-            pm2 describe deployment > /dev/null
-            if [ $? -eq 0 ]; then
+
+            # If pm2 process exists -> reload, else start and persist
+            if pm2 describe deployment > /dev/null 2>&1; then
               echo "Reloading existing PM2 process..."
               pm2 reload deployment
             else
               echo "Starting new PM2 process..."
               pm2 start index.js --name deployment
+              pm2 save
+              # Register pm2 startup (systemd) for user ubuntu; ignore non-zero return
+              sudo pm2 startup systemd -u ubuntu --hp /home/ubuntu || true
+              pm2 save
             fi
-            pm2 save
-            pm2 startup
