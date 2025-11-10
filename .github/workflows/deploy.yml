@@ -1,0 +1,36 @@
+name: Node.js CI/CD on Amazon Linux (EC2 Deployment)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Deploy to AWS EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.REMOTE_HOST }}
+        username: ubuntu
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        source: "./"                
+        target: "/home/ubuntu/deployment"
+
+    - name: Restart Node.js app using PM2
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.REMOTE_HOST }}
+        username: ubuntu
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          cd /home/ubuntu/deployment
+          npm install --production
+          pm2 reload all || pm2 start server.js --name deployment
