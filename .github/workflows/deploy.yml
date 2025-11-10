@@ -1,4 +1,4 @@
-name: Node.js CI/CD (EC2 Deployment - Ubuntu)
+name: Node.js CI/CD (EC2 Ubuntu Deployment)
 
 on:
   push:
@@ -7,19 +7,23 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
+      # 1️⃣ Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Setup Node.js (for local build/test)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # optional: run tests / lint here if you want before deploying
-      - name: Install dependencies (local, optional)
+      # 3️⃣ (Optional) Local dependency install & tests
+      - name: Install dependencies locally
         run: npm install
 
+      # 4️⃣ Copy project to EC2
       - name: Copy project files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -29,10 +33,11 @@ jobs:
           source: "./"
           target: "/home/ubuntu/deployment"
           port: 22
-          timeout: 60s
+          timeout: 90s
           overwrite: true
           debug: false
 
+      # 5️⃣ Restart (or start) the Node app using PM2 on EC2
       - name: Restart Node.js app using PM2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -40,24 +45,41 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
+          timeout: 90s
+          command_timeout: 15m
           script: |
             set -eux
 
             cd /home/ubuntu/deployment
 
-            # ensure correct NODE_ENV and install production deps
+            echo "🔍 Checking Node.js environment..."
+            if ! command -v node >/dev/null 2>&1; then
+              echo "⚙️ Installing Node.js (v20)..."
+              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+              sudo apt-get install -y nodejs
+            fi
+
+            echo "🔍 Checking PM2..."
+            if ! command -v pm2 >/dev/null 2>&1; then
+              echo "⚙️ Installing PM2 globally..."
+              sudo npm install -g pm2
+            fi
+
+            echo "📦 Installing production dependencies..."
             export NODE_ENV=production
             npm ci --only=production
 
-            # If pm2 process exists -> reload, else start and persist
+            echo "🚀 Deploying with PM2..."
             if pm2 describe deployment > /dev/null 2>&1; then
-              echo "Reloading existing PM2 process..."
+              echo "♻️ Reloading existing PM2 process..."
               pm2 reload deployment
             else
-              echo "Starting new PM2 process..."
+              echo "🔥 Starting new PM2 process..."
               pm2 start index.js --name deployment
               pm2 save
-              # Register pm2 startup (systemd) for user ubuntu; ignore non-zero return
+              # Enable auto-start on reboot
               sudo pm2 startup systemd -u ubuntu --hp /home/ubuntu || true
               pm2 save
             fi
+
+            echo "✅ Deployment completed successfully."
