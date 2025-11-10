@@ -9,4 +9,4 @@ app.listen(PORT, (req, res) => {
     console.log(`App is listening on ${PORT}`)
 })
 
-app.get("/", (req, res) => res.json({message: "here is the updated app.."}))
+app.get("/", (req, res) => res.json({message: "here is the updated app with pm2"}))
