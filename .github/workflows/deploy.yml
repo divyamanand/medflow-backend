@@ -9,28 +9,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: npm install
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-    - name: Deploy to AWS EC2
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.REMOTE_HOST }}
-        username: ubuntu
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        source: "./"                
-        target: "/home/ubuntu/deployment"
+      - name: Install dependencies
+        run: npm install
 
-    - name: Restart Node.js app using PM2
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.REMOTE_HOST }}
-        username: ubuntu
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          cd /home/ubuntu/deployment
-          npm install --production
-          pm2 reload all || pm2 start server.js --name deployment
+      - name: Copy project files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ec2-user
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "./"
+          target: "/home/ec2-user/deployment"
+
+      - name: Restart Node.js app using PM2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ec2-user
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/ec2-user/deployment
+            npm ci --only=production
+            pm2 describe deployment > /dev/null
+            if [ $? -eq 0 ]; then
+              echo "Reloading existing PM2 process..."
+              pm2 reload deployment
+            else
+              echo "Starting new PM2 process..."
+              pm2 start index.js --name deployment
+            fi
+            pm2 save
+            pm2 startup
