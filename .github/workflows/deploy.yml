@@ -99,7 +99,37 @@ jobs:
           script: |
             set -euxo pipefail
 
-            APP_NAME="${APP_NAME}"; REMOTE_DIR="${REMOTE_DIR}"; cd "$REMOTE_DIR"
+            APP_NAME="${{ env.APP_NAME }}"; REMOTE_DIR="${{ env.REMOTE_DIR }}"; cd "$REMOTE_DIR"
+
+            echo "Ensuring Docker engine present";
+            if ! command -v docker >/dev/null 2>&1; then
+              sudo apt-get update -y
+              sudo apt-get install -y ca-certificates curl gnupg lsb-release
+              sudo install -m 0755 -d /etc/apt/keyrings
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+              sudo apt-get update -y
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+              sudo systemctl enable --now docker || true
+            fi
+            docker --version || true
+
+            echo "Ensuring Docker Compose available";
+            if ! docker compose version >/dev/null 2>&1; then
+              if ! command -v docker-compose >/dev/null 2>&1; then
+                sudo curl -L "https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+                sudo chmod +x /usr/local/bin/docker-compose
+              fi
+            fi
+            (docker compose version || docker-compose --version) || true
+
+            if [ -f docker-compose.yml ] || [ -f docker-compose.yaml ]; then
+              echo "Bringing up compose services on EC2";
+              sudo docker compose up -d || sudo docker-compose up -d
+              sudo docker compose ps || sudo docker-compose ps || true
+            else
+              echo "No docker-compose file found on EC2; skipping."
+            fi
 
             echo "Ensuring Node.js 20 present";
             if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -c2-3)" != "20" ]; then
