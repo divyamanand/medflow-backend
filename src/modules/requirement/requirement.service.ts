@@ -7,12 +7,16 @@ import { StaffRequirement } from '../../entities/staff-requirement.entity';
 import { StaffRequirementFulfillment } from '../../entities/staff-requirement-fulfillment.entity';
 import { RoomRequirement } from '../../entities/room-requirement.entity';
 import { RoomRequirementFulfillment } from '../../entities/room-requirement-fulfillment.entity';
+import { InventoryItem } from '../../entities/inventory-item.entity';
+import { InventoryTransaction } from '../../entities/inventory-transaction.entity';
 
 @Injectable()
 export class RequirementService {
   constructor(
     @InjectRepository(ItemRequirement) private readonly itemReqRepo: Repository<ItemRequirement>,
     @InjectRepository(ItemRequirementFulfillment) private readonly itemFulfillRepo: Repository<ItemRequirementFulfillment>,
+    @InjectRepository(InventoryItem) private readonly invRepo: Repository<InventoryItem>,
+    @InjectRepository(InventoryTransaction) private readonly txnRepo: Repository<InventoryTransaction>,
     @InjectRepository(StaffRequirement) private readonly staffReqRepo: Repository<StaffRequirement>,
     @InjectRepository(StaffRequirementFulfillment) private readonly staffFulfillRepo: Repository<StaffRequirementFulfillment>,
     @InjectRepository(RoomRequirement) private readonly roomReqRepo: Repository<RoomRequirement>,
@@ -53,6 +57,13 @@ export class RequirementService {
       req.status = RequirementStatus.InProgress;
       await this.itemReqRepo.save(req);
     }
+    if (!body.inventoryItemId || !body.quantity || body.quantity <= 0) {
+      throw new Error('inventoryItemId and positive quantity are required');
+    }
+
+    const item = await this.invRepo.findOne({ where: { id: body.inventoryItemId } });
+    if (!item) throw new NotFoundException('Inventory item not found');
+
     const f = this.itemFulfillRepo.create({
       requirement: { id: requirementId } as any,
       inventoryItem: { id: body.inventoryItemId } as any,
@@ -61,6 +72,19 @@ export class RequirementService {
       endAt: body.endAt ? new Date(body.endAt) : null,
     });
     const saved = await this.itemFulfillRepo.save(f);
+    // Create transaction (type 'fulfill') and update cached stock quantity
+    await this.txnRepo.save(this.txnRepo.create({
+      inventoryItem: item,
+      type: 'fulfill',
+      quantity: body.quantity,
+      reason: requirementId,
+      refPrescriptionItemId: null,
+    }));
+    await this.invRepo.update({ id: item.id }, { quantity: Math.max((item.quantity || 0) - body.quantity, 0) });
+
+    // Increment fulfilledCount by 1 per fulfillment record
+    await this.itemReqRepo.increment({ id: requirementId }, 'fulfilledCount', 1);
+
     await this.recomputeItemRequirementStatus(requirementId);
     return saved;
   }
@@ -132,6 +156,8 @@ export class RequirementService {
       endAt: body.endAt ? new Date(body.endAt) : null,
     });
     const saved = await this.staffFulfillRepo.save(f);
+    // Increment fulfilled count per fulfillment
+    await this.staffReqRepo.increment({ id: requirementId }, 'fulfilledCount', 1);
     await this.recomputeStaffRequirementStatus(requirementId);
     return saved;
   }
@@ -198,6 +224,8 @@ export class RequirementService {
       endAt: body.endAt ? new Date(body.endAt) : null,
     });
     const saved = await this.roomFulfillRepo.save(f);
+    // Increment fulfilled count per fulfillment
+    await this.roomReqRepo.increment({ id: requirementId }, 'fulfilledCount', 1);
     await this.recomputeRoomRequirementStatus(requirementId);
     return saved;
   }

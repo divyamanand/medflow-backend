@@ -24,6 +24,32 @@ export class StaffController {
       return rows;
     });
   }
+  
+  // Aggregated views (place before dynamic ':id' to avoid conflicts)
+  @Get('timings')
+  @Roles('admin','receptionist')
+  timingsTable(@Query() q: any) {
+    const filter: any = {};
+    if (q.role) filter.role = q.role;
+    if (q.specialtyId) filter.specialtyId = q.specialtyId;
+    if (typeof q.weekday !== 'undefined') filter.weekday = parseInt(q.weekday, 10);
+    if (q.from) filter.from = q.from;
+    if (q.to) filter.to = q.to;
+    return this.svc.getTimingsTable(filter);
+  }
+
+  @Get('leaves')
+  @Roles('admin','receptionist')
+  leavesTable(@Query() q: any) {
+    const filter: any = {};
+    if (q.role) filter.role = q.role;
+    if (q.specialtyId) filter.specialtyId = q.specialtyId;
+    if (q.status) filter.status = q.status;
+    if (q.from) filter.from = q.from;
+    if (q.to) filter.to = q.to;
+    return this.svc.getLeavesTable(filter);
+  }
+  
   @Get(':id')
   get(@Param('id') id: string, @Req() req: any) {
     const role = req.user?.role; const userStaffId = req.user?.staffId; // assuming mapped
@@ -123,4 +149,5 @@ export class StaffController {
     if (role === 'admin' || role === 'receptionist' || sub === id) return this.svc.deleteLeave(id, leaveId);
     throw new ForbiddenException('Not allowed');
   }
+
 }

@@ -177,10 +177,31 @@ export class StaffService {
   getTimings(staffId: string) { return this.timingsRepo.find({ where: { staff: { id: staffId } as any } }); }
 
   async upsertTimings(staffId: string, entries: Partial<Timings>[]) {
-    // naive: delete existing, insert new
-    await this.timingsRepo.delete({ staff: { id: staffId } as any });
-    const toSave = entries.map((e) => this.timingsRepo.create({ ...e, staff: { id: staffId } as any }));
-    return this.timingsRepo.save(toSave);
+    // Append new timings; update existing ones if id provided. Do NOT delete previous timings.
+    const created: Timings[] = [];
+    const updated: Timings[] = [];
+
+    const newEntries = entries.filter((e: any) => !e?.id);
+    if (newEntries.length) {
+      const toCreate = newEntries.map((e) => this.timingsRepo.create({ ...e, staff: { id: staffId } as any }));
+      const saved = await this.timingsRepo.save(toCreate);
+      created.push(...saved);
+    }
+
+    const updates = entries.filter((e: any) => !!e?.id);
+    for (const u of updates as any[]) {
+      const { id, ...rest } = u || {};
+      if (!id) continue;
+      await this.timingsRepo.createQueryBuilder()
+        .update(Timings)
+        .set({ ...rest })
+        .where('id = :id AND staffId = :sid', { id, sid: staffId })
+        .execute();
+      const row = await this.getTimingById(staffId, id);
+      if (row) updated.push(row as Timings);
+    }
+
+    return [...created, ...updated];
   }
 
   addLeave(staffId: string, leave: Partial<Leave>) {
@@ -240,89 +261,46 @@ export class StaffService {
       .execute();
     return { id: leaveId, removed: true } as any;
   }
-
-  async getTimingsTable(filter?: { role?: string; specialtyId?: string; from?: string; to?: string; weekday?: number }) {
+  
+  async getTimingsTable(filter?: { role?: string; specialtyId?: string; weekday?: number }) {
     const staffRows = await this.findAll({ role: filter?.role, specialtyId: filter?.specialtyId });
-    const staffIds = staffRows.map((s) => s.id);
-    if (!staffIds.length) return [] as any[];
-
-    // Load timings
+    if (!staffRows.length) return [] as any[];
+    const staffIds = staffRows.map(s => s.id);
     const tQ = this.timingsRepo.createQueryBuilder('t').where('t.staffId IN (:...ids)', { ids: staffIds });
     if (typeof filter?.weekday === 'number') tQ.andWhere('t.weekday = :wd', { wd: filter!.weekday });
     const timings = await tQ.getMany();
-
-    // Load leaves with optional overlap filter
-    const lQ = this.leaveRepo.createQueryBuilder('l').where('l.staffId IN (:...ids)', { ids: staffIds });
-    const from = filter?.from;
-    const to = filter?.to;
-    if (from && to) {
-      lQ.andWhere('l.startDate <= :to AND l.endDate >= :from', { from, to });
-    } else if (from) {
-      lQ.andWhere('l.endDate >= :from', { from });
-    } else if (to) {
-      lQ.andWhere('l.startDate <= :to', { to });
-    }
-    const leaves = await lQ.getMany();
-
-    // Compose table
-    const byStaff: Record<string, { staffId: string; name: string | null; role: string | null; timings: any[]; leaves: any[] }>= {};
-    for (const s of staffRows) {
-      const name = [s.user?.firstName || '', s.user?.lastName || ''].join(' ').trim() || null;
-      const role = s.user?.role || null;
-      byStaff[s.id] = { staffId: s.id, name, role, timings: [], leaves: [] };
-    }
+    const timingMap: Record<string, any[]> = {};
     for (const t of timings) {
       const sid = (t.staff as any)?.id || (t as any).staffId;
-      if (!byStaff[sid]) continue;
-      byStaff[sid].timings.push({ id: t.id, weekday: t.weekday, startTime: t.startTime, endTime: t.endTime, isAvailable: t.isAvailable, notes: t.notes });
+      if (!timingMap[sid]) timingMap[sid] = [];
+      timingMap[sid].push({ id: t.id, weekday: t.weekday, startTime: t.startTime, endTime: t.endTime, isAvailable: t.isAvailable, notes: t.notes });
     }
-    for (const l of leaves) {
-      const sid = (l.staff as any)?.id || (l as any).staffId;
-      if (!byStaff[sid]) continue;
-      byStaff[sid].leaves.push({ id: l.id, startDate: l.startDate, endDate: l.endDate, status: l.status, reason: l.reason, notes: l.notes });
-    }
-    return Object.values(byStaff);
+    return staffRows.map(s => {
+      const name = [s.user?.firstName || '', s.user?.lastName || ''].join(' ').trim() || null;
+      return { staffId: s.id, name, role: s.user?.role || null, timings: timingMap[s.id] || [] };
+    });
   }
 
   async getLeavesTable(filter?: { role?: string; specialtyId?: string; status?: string; from?: string; to?: string }) {
     const staffRows = await this.findAll({ role: filter?.role, specialtyId: filter?.specialtyId });
-    const staffIds = staffRows.map((s) => s.id);
-    if (!staffIds.length) return [] as any[];
-
-    const lQ = this.leaveRepo.createQueryBuilder('l').leftJoinAndSelect('l.staff', 'staff').where('l.staffId IN (:...ids)', { ids: staffIds });
+    if (!staffRows.length) return [] as any[];
+    const staffIds = staffRows.map(s => s.id);
+    const lQ = this.leaveRepo.createQueryBuilder('l').where('l.staffId IN (:...ids)', { ids: staffIds });
     if (filter?.status) lQ.andWhere('l.status = :st', { st: filter.status });
-    const from = filter?.from;
-    const to = filter?.to;
-    if (from && to) {
-      lQ.andWhere('l.startDate <= :to AND l.endDate >= :from', { from, to });
-    } else if (from) {
-      lQ.andWhere('l.endDate >= :from', { from });
-    } else if (to) {
-      lQ.andWhere('l.startDate <= :to', { to });
-    }
+    const from = filter?.from; const to = filter?.to;
+    if (from && to) lQ.andWhere('l.startDate <= :to AND l.endDate >= :from', { from, to });
+    else if (from) lQ.andWhere('l.endDate >= :from', { from });
+    else if (to) lQ.andWhere('l.startDate <= :to', { to });
     const leaves = await lQ.getMany();
-
-    const userByStaff: Record<string, { name: string | null; role: string | null }> = {};
-    for (const s of staffRows) {
-      const name = [s.user?.firstName || '', s.user?.lastName || ''].join(' ').trim() || null;
-      userByStaff[s.id] = { name, role: s.user?.role || null };
-    }
-    return leaves.map((l) => {
+    const leavesMap: Record<string, any[]> = {};
+    for (const l of leaves) {
       const sid = (l.staff as any)?.id || (l as any).staffId;
-      const meta = userByStaff[sid] || { name: null, role: null };
-      return {
-        leaveId: l.id,
-        staffId: sid,
-        staffName: meta.name,
-        role: meta.role,
-        startDate: l.startDate,
-        endDate: l.endDate,
-        status: l.status,
-        reason: l.reason,
-        notes: l.notes,
-        createdAt: l.createdAt,
-        updatedAt: l.updatedAt,
-      };
+      if (!leavesMap[sid]) leavesMap[sid] = [];
+      leavesMap[sid].push({ id: l.id, startDate: l.startDate, endDate: l.endDate, status: l.status, reason: l.reason, notes: l.notes });
+    }
+    return staffRows.map(s => {
+      const name = [s.user?.firstName || '', s.user?.lastName || ''].join(' ').trim() || null;
+      return { staffId: s.id, name, role: s.user?.role || null, leaves: leavesMap[s.id] || [] };
     });
   }
 }

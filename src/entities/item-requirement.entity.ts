@@ -21,6 +21,9 @@ export class ItemRequirement {
   @Column({ type: 'int' })
   quantity!: number;
 
+  @Column({ type: 'int', default: 0 })
+  fulfilledCount!: number;
+
   @Column({ type: 'enum', enum: RequirementStatus, default: RequirementStatus.Open })
   status!: RequirementStatus;
 

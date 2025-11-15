@@ -9,6 +9,7 @@ import { StaffRequirementFulfillment } from '../../entities/staff-requirement-fu
 import { RoomRequirement } from '../../entities/room-requirement.entity';
 import { RoomRequirementFulfillment } from '../../entities/room-requirement-fulfillment.entity';
 import { InventoryItem } from '../../entities/inventory-item.entity';
+import { InventoryTransaction } from '../../entities/inventory-transaction.entity';
 import { Staff } from '../../entities/staff.entity';
 import { Room } from '../../entities/room.entity';
 
@@ -22,6 +23,7 @@ import { Room } from '../../entities/room.entity';
       RoomRequirement,
       RoomRequirementFulfillment,
       InventoryItem,
+      InventoryTransaction,
       Staff,
       Room,
     ]),
