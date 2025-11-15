@@ -25,7 +25,6 @@ export class StaffController {
     });
   }
   
-  // Aggregated views (place before dynamic ':id' to avoid conflicts)
   @Get('timings')
   @Roles('admin','receptionist')
   timingsTable(@Query() q: any) {
@@ -49,7 +48,7 @@ export class StaffController {
     if (q.to) filter.to = q.to;
     return this.svc.getLeavesTable(filter);
   }
-  
+
   @Get(':id')
   get(@Param('id') id: string, @Req() req: any) {
     const role = req.user?.role; const userStaffId = req.user?.staffId; // assuming mapped

@@ -266,12 +266,15 @@ export class StaffService {
     const staffRows = await this.findAll({ role: filter?.role, specialtyId: filter?.specialtyId });
     if (!staffRows.length) return [] as any[];
     const staffIds = staffRows.map(s => s.id);
-    const tQ = this.timingsRepo.createQueryBuilder('t').where('t.staffId IN (:...ids)', { ids: staffIds });
+    const tQ = this.timingsRepo
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.staff', 's')
+      .where('t.staffId IN (:...ids)', { ids: staffIds });
     if (typeof filter?.weekday === 'number') tQ.andWhere('t.weekday = :wd', { wd: filter!.weekday });
     const timings = await tQ.getMany();
     const timingMap: Record<string, any[]> = {};
     for (const t of timings) {
-      const sid = (t.staff as any)?.id || (t as any).staffId;
+      const sid = (t as any)?.staff?.id as string;
       if (!timingMap[sid]) timingMap[sid] = [];
       timingMap[sid].push({ id: t.id, weekday: t.weekday, startTime: t.startTime, endTime: t.endTime, isAvailable: t.isAvailable, notes: t.notes });
     }
@@ -285,7 +288,10 @@ export class StaffService {
     const staffRows = await this.findAll({ role: filter?.role, specialtyId: filter?.specialtyId });
     if (!staffRows.length) return [] as any[];
     const staffIds = staffRows.map(s => s.id);
-    const lQ = this.leaveRepo.createQueryBuilder('l').where('l.staffId IN (:...ids)', { ids: staffIds });
+    const lQ = this.leaveRepo
+      .createQueryBuilder('l')
+      .leftJoinAndSelect('l.staff', 's')
+      .where('l.staffId IN (:...ids)', { ids: staffIds });
     if (filter?.status) lQ.andWhere('l.status = :st', { st: filter.status });
     const from = filter?.from; const to = filter?.to;
     if (from && to) lQ.andWhere('l.startDate <= :to AND l.endDate >= :from', { from, to });
@@ -294,7 +300,7 @@ export class StaffService {
     const leaves = await lQ.getMany();
     const leavesMap: Record<string, any[]> = {};
     for (const l of leaves) {
-      const sid = (l.staff as any)?.id || (l as any).staffId;
+      const sid = (l as any)?.staff?.id as string;
       if (!leavesMap[sid]) leavesMap[sid] = [];
       leavesMap[sid].push({ id: l.id, startDate: l.startDate, endDate: l.endDate, status: l.status, reason: l.reason, notes: l.notes });
     }
