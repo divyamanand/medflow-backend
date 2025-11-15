@@ -44,15 +44,14 @@ let PatientOrDoctorGuard = class PatientOrDoctorGuard {
             if ((patient === null || patient === void 0 ? void 0 : patient.primaryPhysician) && patient.primaryPhysician.id === user.id)
                 return true;
             const busy = [
-                appointment_entity_1.AppointmentStatus.Pending,
-                appointment_entity_1.AppointmentStatus.Confirmed,
-                appointment_entity_1.AppointmentStatus.CheckedIn,
-                appointment_entity_1.AppointmentStatus.InProgress,
-                appointment_entity_1.AppointmentStatus.Completed,
+                'scheduled',
+                'confirmed',
+                'checkedIn',
+                'completed',
             ];
             const count = await this.apptRepo.createQueryBuilder('a')
-                .where('a.patient_id = :pid', { pid: patientId })
-                .andWhere('a.doctor_id = :did', { did: user.id })
+                .where('a.patientId = :pid', { pid: patientId })
+                .andWhere('a.doctorId = :did', { did: user.id })
                 .andWhere('a.status IN (:...st)', { st: busy })
                 .getCount();
             if (count > 0)

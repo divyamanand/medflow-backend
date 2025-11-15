@@ -18,6 +18,7 @@ const staff_requirement_fulfillment_entity_1 = require("../../entities/staff-req
 const room_requirement_entity_1 = require("../../entities/room-requirement.entity");
 const room_requirement_fulfillment_entity_1 = require("../../entities/room-requirement-fulfillment.entity");
 const inventory_item_entity_1 = require("../../entities/inventory-item.entity");
+const inventory_transaction_entity_1 = require("../../entities/inventory-transaction.entity");
 const staff_entity_1 = require("../../entities/staff.entity");
 const room_entity_1 = require("../../entities/room.entity");
 let RequirementModule = class RequirementModule {
@@ -34,6 +35,7 @@ exports.RequirementModule = RequirementModule = __decorate([
                 room_requirement_entity_1.RoomRequirement,
                 room_requirement_fulfillment_entity_1.RoomRequirementFulfillment,
                 inventory_item_entity_1.InventoryItem,
+                inventory_transaction_entity_1.InventoryTransaction,
                 staff_entity_1.Staff,
                 room_entity_1.Room,
             ]),

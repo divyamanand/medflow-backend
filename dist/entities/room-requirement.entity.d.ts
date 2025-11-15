@@ -4,6 +4,7 @@ export declare class RoomRequirement {
     primaryUserId: string;
     roomType: string;
     quantity: number;
+    fulfilledCount: number;
     status: RequirementStatus;
     notes: string | null;
     createdAt: Date;

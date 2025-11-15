@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from '@
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Patient } from '../../entities/patient.entity';
-import { Appointment, AppointmentStatus } from '../../entities/appointment.entity';
+import { Appointment } from '../../entities/appointment.entity';
 
 @Injectable()
 export class PatientOrDoctorGuard implements CanActivate {
@@ -31,15 +31,14 @@ export class PatientOrDoctorGuard implements CanActivate {
       const patient = await this.patientRepo.findOne({ where: { id: patientId }, relations: ['primaryPhysician'] });
       if (patient?.primaryPhysician && (patient.primaryPhysician as any).id === user.id) return true;
       const busy = [
-        AppointmentStatus.Pending,
-        AppointmentStatus.Confirmed,
-        AppointmentStatus.CheckedIn,
-        AppointmentStatus.InProgress,
-        AppointmentStatus.Completed,
+        'scheduled',
+        'confirmed',
+        'checkedIn',
+        'completed',
       ];
       const count = await this.apptRepo.createQueryBuilder('a')
-        .where('a.patient_id = :pid', { pid: patientId })
-        .andWhere('a.doctor_id = :did', { did: user.id })
+        .where('a.patientId = :pid', { pid: patientId })
+        .andWhere('a.doctorId = :did', { did: user.id })
         .andWhere('a.status IN (:...st)', { st: busy })
         .getCount();
       if (count > 0) return true;

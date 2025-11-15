@@ -214,9 +214,29 @@ let StaffService = class StaffService {
     }
     getTimings(staffId) { return this.timingsRepo.find({ where: { staff: { id: staffId } } }); }
     async upsertTimings(staffId, entries) {
-        await this.timingsRepo.delete({ staff: { id: staffId } });
-        const toSave = entries.map((e) => this.timingsRepo.create({ ...e, staff: { id: staffId } }));
-        return this.timingsRepo.save(toSave);
+        const created = [];
+        const updated = [];
+        const newEntries = entries.filter((e) => !(e === null || e === void 0 ? void 0 : e.id));
+        if (newEntries.length) {
+            const toCreate = newEntries.map((e) => this.timingsRepo.create({ ...e, staff: { id: staffId } }));
+            const saved = await this.timingsRepo.save(toCreate);
+            created.push(...saved);
+        }
+        const updates = entries.filter((e) => !!(e === null || e === void 0 ? void 0 : e.id));
+        for (const u of updates) {
+            const { id, ...rest } = u || {};
+            if (!id)
+                continue;
+            await this.timingsRepo.createQueryBuilder()
+                .update(timings_entity_1.Timings)
+                .set({ ...rest })
+                .where('id = :id AND staffId = :sid', { id, sid: staffId })
+                .execute();
+            const row = await this.getTimingById(staffId, id);
+            if (row)
+                updated.push(row);
+        }
+        return [...created, ...updated];
     }
     addLeave(staffId, leave) {
         return this.leaveRepo.save(this.leaveRepo.create({ ...leave, staff: { id: staffId } }));
@@ -266,91 +286,63 @@ let StaffService = class StaffService {
         return { id: leaveId, removed: true };
     }
     async getTimingsTable(filter) {
-        var _a, _b, _c, _d, _e;
+        var _a;
         const staffRows = await this.findAll({ role: filter === null || filter === void 0 ? void 0 : filter.role, specialtyId: filter === null || filter === void 0 ? void 0 : filter.specialtyId });
-        const staffIds = staffRows.map((s) => s.id);
-        if (!staffIds.length)
+        if (!staffRows.length)
             return [];
-        const tQ = this.timingsRepo.createQueryBuilder('t').where('t.staffId IN (:...ids)', { ids: staffIds });
+        const staffIds = staffRows.map(s => s.id);
+        const tQ = this.timingsRepo
+            .createQueryBuilder('t')
+            .leftJoinAndSelect('t.staff', 's')
+            .where('t.staffId IN (:...ids)', { ids: staffIds });
         if (typeof (filter === null || filter === void 0 ? void 0 : filter.weekday) === 'number')
             tQ.andWhere('t.weekday = :wd', { wd: filter.weekday });
         const timings = await tQ.getMany();
-        const lQ = this.leaveRepo.createQueryBuilder('l').where('l.staffId IN (:...ids)', { ids: staffIds });
-        const from = filter === null || filter === void 0 ? void 0 : filter.from;
-        const to = filter === null || filter === void 0 ? void 0 : filter.to;
-        if (from && to) {
-            lQ.andWhere('l.startDate <= :to AND l.endDate >= :from', { from, to });
-        }
-        else if (from) {
-            lQ.andWhere('l.endDate >= :from', { from });
-        }
-        else if (to) {
-            lQ.andWhere('l.startDate <= :to', { to });
-        }
-        const leaves = await lQ.getMany();
-        const byStaff = {};
-        for (const s of staffRows) {
-            const name = [((_a = s.user) === null || _a === void 0 ? void 0 : _a.firstName) || '', ((_b = s.user) === null || _b === void 0 ? void 0 : _b.lastName) || ''].join(' ').trim() || null;
-            const role = ((_c = s.user) === null || _c === void 0 ? void 0 : _c.role) || null;
-            byStaff[s.id] = { staffId: s.id, name, role, timings: [], leaves: [] };
-        }
+        const timingMap = {};
         for (const t of timings) {
-            const sid = ((_d = t.staff) === null || _d === void 0 ? void 0 : _d.id) || t.staffId;
-            if (!byStaff[sid])
-                continue;
-            byStaff[sid].timings.push({ id: t.id, weekday: t.weekday, startTime: t.startTime, endTime: t.endTime, isAvailable: t.isAvailable, notes: t.notes });
+            const sid = (_a = t === null || t === void 0 ? void 0 : t.staff) === null || _a === void 0 ? void 0 : _a.id;
+            if (!timingMap[sid])
+                timingMap[sid] = [];
+            timingMap[sid].push({ id: t.id, weekday: t.weekday, startTime: t.startTime, endTime: t.endTime, isAvailable: t.isAvailable, notes: t.notes });
         }
-        for (const l of leaves) {
-            const sid = ((_e = l.staff) === null || _e === void 0 ? void 0 : _e.id) || l.staffId;
-            if (!byStaff[sid])
-                continue;
-            byStaff[sid].leaves.push({ id: l.id, startDate: l.startDate, endDate: l.endDate, status: l.status, reason: l.reason, notes: l.notes });
-        }
-        return Object.values(byStaff);
+        return staffRows.map(s => {
+            var _a, _b, _c;
+            const name = [((_a = s.user) === null || _a === void 0 ? void 0 : _a.firstName) || '', ((_b = s.user) === null || _b === void 0 ? void 0 : _b.lastName) || ''].join(' ').trim() || null;
+            return { staffId: s.id, name, role: ((_c = s.user) === null || _c === void 0 ? void 0 : _c.role) || null, timings: timingMap[s.id] || [] };
+        });
     }
     async getLeavesTable(filter) {
-        var _a, _b, _c;
+        var _a;
         const staffRows = await this.findAll({ role: filter === null || filter === void 0 ? void 0 : filter.role, specialtyId: filter === null || filter === void 0 ? void 0 : filter.specialtyId });
-        const staffIds = staffRows.map((s) => s.id);
-        if (!staffIds.length)
+        if (!staffRows.length)
             return [];
-        const lQ = this.leaveRepo.createQueryBuilder('l').leftJoinAndSelect('l.staff', 'staff').where('l.staffId IN (:...ids)', { ids: staffIds });
+        const staffIds = staffRows.map(s => s.id);
+        const lQ = this.leaveRepo
+            .createQueryBuilder('l')
+            .leftJoinAndSelect('l.staff', 's')
+            .where('l.staffId IN (:...ids)', { ids: staffIds });
         if (filter === null || filter === void 0 ? void 0 : filter.status)
             lQ.andWhere('l.status = :st', { st: filter.status });
         const from = filter === null || filter === void 0 ? void 0 : filter.from;
         const to = filter === null || filter === void 0 ? void 0 : filter.to;
-        if (from && to) {
+        if (from && to)
             lQ.andWhere('l.startDate <= :to AND l.endDate >= :from', { from, to });
-        }
-        else if (from) {
+        else if (from)
             lQ.andWhere('l.endDate >= :from', { from });
-        }
-        else if (to) {
+        else if (to)
             lQ.andWhere('l.startDate <= :to', { to });
-        }
         const leaves = await lQ.getMany();
-        const userByStaff = {};
-        for (const s of staffRows) {
-            const name = [((_a = s.user) === null || _a === void 0 ? void 0 : _a.firstName) || '', ((_b = s.user) === null || _b === void 0 ? void 0 : _b.lastName) || ''].join(' ').trim() || null;
-            userByStaff[s.id] = { name, role: ((_c = s.user) === null || _c === void 0 ? void 0 : _c.role) || null };
+        const leavesMap = {};
+        for (const l of leaves) {
+            const sid = (_a = l === null || l === void 0 ? void 0 : l.staff) === null || _a === void 0 ? void 0 : _a.id;
+            if (!leavesMap[sid])
+                leavesMap[sid] = [];
+            leavesMap[sid].push({ id: l.id, startDate: l.startDate, endDate: l.endDate, status: l.status, reason: l.reason, notes: l.notes });
         }
-        return leaves.map((l) => {
-            var _a;
-            const sid = ((_a = l.staff) === null || _a === void 0 ? void 0 : _a.id) || l.staffId;
-            const meta = userByStaff[sid] || { name: null, role: null };
-            return {
-                leaveId: l.id,
-                staffId: sid,
-                staffName: meta.name,
-                role: meta.role,
-                startDate: l.startDate,
-                endDate: l.endDate,
-                status: l.status,
-                reason: l.reason,
-                notes: l.notes,
-                createdAt: l.createdAt,
-                updatedAt: l.updatedAt,
-            };
+        return staffRows.map(s => {
+            var _a, _b, _c;
+            const name = [((_a = s.user) === null || _a === void 0 ? void 0 : _a.firstName) || '', ((_b = s.user) === null || _b === void 0 ? void 0 : _b.lastName) || ''].join(' ').trim() || null;
+            return { staffId: s.id, name, role: ((_c = s.user) === null || _c === void 0 ? void 0 : _c.role) || null, leaves: leavesMap[s.id] || [] };
         });
     }
 };

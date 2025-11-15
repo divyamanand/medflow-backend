@@ -38,6 +38,10 @@ __decorate([
     __metadata("design:type", Number)
 ], ItemRequirement.prototype, "quantity", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], ItemRequirement.prototype, "fulfilledCount", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'enum', enum: RequirementStatus, default: RequirementStatus.Open }),
     __metadata("design:type", String)
 ], ItemRequirement.prototype, "status", void 0);

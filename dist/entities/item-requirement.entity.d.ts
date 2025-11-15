@@ -9,6 +9,7 @@ export declare class ItemRequirement {
     primaryUserId: string;
     kind: 'equipment' | 'blood';
     quantity: number;
+    fulfilledCount: number;
     status: RequirementStatus;
     notes: string | null;
     createdAt: Date;

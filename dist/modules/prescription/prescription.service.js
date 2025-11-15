@@ -31,10 +31,10 @@ let PrescriptionService = class PrescriptionService {
         const items = Array.isArray(data === null || data === void 0 ? void 0 : data.items) ? data.items : null;
         const payload = { ...data };
         delete payload.items;
-        if (payload.patientId && !payload.patient)
-            payload.patient = { id: payload.patientId };
-        if (payload.doctorId && !payload.doctor)
-            payload.doctor = { id: payload.doctorId };
+        if ((data === null || data === void 0 ? void 0 : data.patientId) && !payload.patient)
+            payload.patient = { id: data.patientId };
+        if ((data === null || data === void 0 ? void 0 : data.doctorId) && !payload.doctor)
+            payload.doctor = { id: data.doctorId };
         const pres = await this.presRepo.save(this.presRepo.create(payload));
         if (items && items.length) {
             const now = new Date();

@@ -40,6 +40,34 @@ let StaffController = class StaffController {
             return rows;
         });
     }
+    timingsTable(q) {
+        const filter = {};
+        if (q.role)
+            filter.role = q.role;
+        if (q.specialtyId)
+            filter.specialtyId = q.specialtyId;
+        if (typeof q.weekday !== 'undefined')
+            filter.weekday = parseInt(q.weekday, 10);
+        if (q.from)
+            filter.from = q.from;
+        if (q.to)
+            filter.to = q.to;
+        return this.svc.getTimingsTable(filter);
+    }
+    leavesTable(q) {
+        const filter = {};
+        if (q.role)
+            filter.role = q.role;
+        if (q.specialtyId)
+            filter.specialtyId = q.specialtyId;
+        if (q.status)
+            filter.status = q.status;
+        if (q.from)
+            filter.from = q.from;
+        if (q.to)
+            filter.to = q.to;
+        return this.svc.getLeavesTable(filter);
+    }
     get(id, req) {
         var _a, _b;
         const role = (_a = req.user) === null || _a === void 0 ? void 0 : _a.role;
@@ -172,6 +200,22 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], StaffController.prototype, "list", null);
+__decorate([
+    (0, common_1.Get)('timings'),
+    (0, roles_decorator_1.Roles)('admin', 'receptionist'),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], StaffController.prototype, "timingsTable", null);
+__decorate([
+    (0, common_1.Get)('leaves'),
+    (0, roles_decorator_1.Roles)('admin', 'receptionist'),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], StaffController.prototype, "leavesTable", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),

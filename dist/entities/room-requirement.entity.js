@@ -32,6 +32,10 @@ __decorate([
     __metadata("design:type", Number)
 ], RoomRequirement.prototype, "quantity", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], RoomRequirement.prototype, "fulfilledCount", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'enum', enum: item_requirement_entity_1.RequirementStatus, default: item_requirement_entity_1.RequirementStatus.Open }),
     __metadata("design:type", String)
 ], RoomRequirement.prototype, "status", void 0);

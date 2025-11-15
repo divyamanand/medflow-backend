@@ -41,9 +41,12 @@ const core_1 = require("@nestjs/core");
 const app_module_1 = require("./app.module");
 const dotenv = __importStar(require("dotenv"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
+const bodyParser = __importStar(require("body-parser"));
 async function bootstrap() {
     dotenv.config();
-    const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, { bodyParser: false });
+    app.use((req, res, next) => (req.method === 'GET' || req.method === 'HEAD') ? next() : bodyParser.json({ strict: false })(req, res, next));
+    app.use((req, res, next) => (req.method === 'GET' || req.method === 'HEAD') ? next() : bodyParser.urlencoded({ extended: true })(req, res, next));
     app.use((0, cookie_parser_1.default)());
     app.enableCors({
         origin: (origin, cb) => cb(null, true),

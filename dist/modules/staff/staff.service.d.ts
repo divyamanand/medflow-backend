@@ -58,8 +58,6 @@ export declare class StaffService {
     getTimingsTable(filter?: {
         role?: string;
         specialtyId?: string;
-        from?: string;
-        to?: string;
         weekday?: number;
     }): Promise<any[]>;
     getLeavesTable(filter?: {

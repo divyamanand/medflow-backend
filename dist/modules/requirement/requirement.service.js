@@ -22,10 +22,14 @@ const staff_requirement_entity_1 = require("../../entities/staff-requirement.ent
 const staff_requirement_fulfillment_entity_1 = require("../../entities/staff-requirement-fulfillment.entity");
 const room_requirement_entity_1 = require("../../entities/room-requirement.entity");
 const room_requirement_fulfillment_entity_1 = require("../../entities/room-requirement-fulfillment.entity");
+const inventory_item_entity_1 = require("../../entities/inventory-item.entity");
+const inventory_transaction_entity_1 = require("../../entities/inventory-transaction.entity");
 let RequirementService = class RequirementService {
-    constructor(itemReqRepo, itemFulfillRepo, staffReqRepo, staffFulfillRepo, roomReqRepo, roomFulfillRepo) {
+    constructor(itemReqRepo, itemFulfillRepo, invRepo, txnRepo, staffReqRepo, staffFulfillRepo, roomReqRepo, roomFulfillRepo) {
         this.itemReqRepo = itemReqRepo;
         this.itemFulfillRepo = itemFulfillRepo;
+        this.invRepo = invRepo;
+        this.txnRepo = txnRepo;
         this.staffReqRepo = staffReqRepo;
         this.staffFulfillRepo = staffFulfillRepo;
         this.roomReqRepo = roomReqRepo;
@@ -70,6 +74,12 @@ let RequirementService = class RequirementService {
             req.status = item_requirement_entity_1.RequirementStatus.InProgress;
             await this.itemReqRepo.save(req);
         }
+        if (!body.inventoryItemId || !body.quantity || body.quantity <= 0) {
+            throw new Error('inventoryItemId and positive quantity are required');
+        }
+        const item = await this.invRepo.findOne({ where: { id: body.inventoryItemId } });
+        if (!item)
+            throw new common_1.NotFoundException('Inventory item not found');
         const f = this.itemFulfillRepo.create({
             requirement: { id: requirementId },
             inventoryItem: { id: body.inventoryItemId },
@@ -78,6 +88,15 @@ let RequirementService = class RequirementService {
             endAt: body.endAt ? new Date(body.endAt) : null,
         });
         const saved = await this.itemFulfillRepo.save(f);
+        await this.txnRepo.save(this.txnRepo.create({
+            inventoryItem: item,
+            type: 'fulfill',
+            quantity: body.quantity,
+            reason: requirementId,
+            refPrescriptionItemId: null,
+        }));
+        await this.invRepo.update({ id: item.id }, { quantity: Math.max((item.quantity || 0) - body.quantity, 0) });
+        await this.itemReqRepo.increment({ id: requirementId }, 'fulfilledCount', 1);
         await this.recomputeItemRequirementStatus(requirementId);
         return saved;
     }
@@ -160,6 +179,7 @@ let RequirementService = class RequirementService {
             endAt: body.endAt ? new Date(body.endAt) : null,
         });
         const saved = await this.staffFulfillRepo.save(f);
+        await this.staffReqRepo.increment({ id: requirementId }, 'fulfilledCount', 1);
         await this.recomputeStaffRequirementStatus(requirementId);
         return saved;
     }
@@ -235,6 +255,7 @@ let RequirementService = class RequirementService {
             endAt: body.endAt ? new Date(body.endAt) : null,
         });
         const saved = await this.roomFulfillRepo.save(f);
+        await this.roomReqRepo.increment({ id: requirementId }, 'fulfilledCount', 1);
         await this.recomputeRoomRequirementStatus(requirementId);
         return saved;
     }
@@ -268,11 +289,15 @@ exports.RequirementService = RequirementService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(item_requirement_entity_1.ItemRequirement)),
     __param(1, (0, typeorm_1.InjectRepository)(item_requirement_fulfillment_entity_1.ItemRequirementFulfillment)),
-    __param(2, (0, typeorm_1.InjectRepository)(staff_requirement_entity_1.StaffRequirement)),
-    __param(3, (0, typeorm_1.InjectRepository)(staff_requirement_fulfillment_entity_1.StaffRequirementFulfillment)),
-    __param(4, (0, typeorm_1.InjectRepository)(room_requirement_entity_1.RoomRequirement)),
-    __param(5, (0, typeorm_1.InjectRepository)(room_requirement_fulfillment_entity_1.RoomRequirementFulfillment)),
+    __param(2, (0, typeorm_1.InjectRepository)(inventory_item_entity_1.InventoryItem)),
+    __param(3, (0, typeorm_1.InjectRepository)(inventory_transaction_entity_1.InventoryTransaction)),
+    __param(4, (0, typeorm_1.InjectRepository)(staff_requirement_entity_1.StaffRequirement)),
+    __param(5, (0, typeorm_1.InjectRepository)(staff_requirement_fulfillment_entity_1.StaffRequirementFulfillment)),
+    __param(6, (0, typeorm_1.InjectRepository)(room_requirement_entity_1.RoomRequirement)),
+    __param(7, (0, typeorm_1.InjectRepository)(room_requirement_fulfillment_entity_1.RoomRequirementFulfillment)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,

@@ -17,6 +17,8 @@ export declare class StaffController {
             primary: boolean;
         }[];
     }[]>;
+    timingsTable(q: any): Promise<any[]>;
+    leavesTable(q: any): Promise<any[]>;
     get(id: string, req: any): Promise<{
         id: string;
         name: string | null;

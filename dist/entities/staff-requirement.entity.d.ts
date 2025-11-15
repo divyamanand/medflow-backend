@@ -4,6 +4,7 @@ export declare class StaffRequirement {
     primaryUserId: string;
     roleNeeded: string;
     quantity: number;
+    fulfilledCount: number;
     status: RequirementStatus;
     notes: string | null;
     createdAt: Date;

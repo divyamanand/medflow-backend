@@ -17,11 +17,11 @@ export class PrescriptionService {
 
   async create(data: any) {
     const items = Array.isArray(data?.items) ? data.items : null;
-    const payload: any = { ...data };
+    const payload: Partial<Prescription> = { ...data };
     delete payload.items;
-    if (payload.patientId && !payload.patient) payload.patient = { id: payload.patientId } as any;
-    if (payload.doctorId && !payload.doctor) payload.doctor = { id: payload.doctorId } as any;
-    const pres = await this.presRepo.save(this.presRepo.create(payload));
+    if ((data as any)?.patientId && !payload.patient) payload.patient = { id: (data as any).patientId } as any;
+    if ((data as any)?.doctorId && !payload.doctor) payload.doctor = { id: (data as any).doctorId } as any;
+    const pres = await this.presRepo.save(this.presRepo.create(payload as Partial<Prescription>)) as Prescription;
     if (items && items.length) {
       const now = new Date();
       const toSave = items.map((it: any) => this.itemRepo.create({
@@ -65,7 +65,7 @@ export class PrescriptionService {
   }
   async update(id: string, data: any) {
     const items = Array.isArray(data?.items) ? data.items : null;
-    const payload: any = { ...data };
+    const payload: Partial<Prescription> = { ...data } as Partial<Prescription>;
     delete payload.items;
     await this.presRepo.update({ id }, payload);
     if (items) {
