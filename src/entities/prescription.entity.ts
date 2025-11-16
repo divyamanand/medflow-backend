@@ -8,13 +8,13 @@ export class Prescription {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ManyToOne(() => Patient)
+  @ManyToOne(() => Patient, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'patientId' })
-  patient!: Patient;
+  patient!: Patient | null;
 
-  @ManyToOne(() => Staff)
+  @ManyToOne(() => Staff, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'doctorId' })
-  doctor!: Staff;
+  doctor!: Staff | null;
 
   @Column({ type: 'date', nullable: true })
   nextReview!: string | null;

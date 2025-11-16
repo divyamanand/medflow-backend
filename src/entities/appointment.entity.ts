@@ -9,11 +9,11 @@ export class Appointment {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ManyToOne(() => Patient, { nullable: false })
+  @ManyToOne(() => Patient, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'patientId' })
-  patient!: Patient;
+  patient!: Patient | null;
 
-  @ManyToOne(() => Staff, { nullable: false })
+  @ManyToOne(() => Staff, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'doctorId' })
   doctor!: Staff | null;
 

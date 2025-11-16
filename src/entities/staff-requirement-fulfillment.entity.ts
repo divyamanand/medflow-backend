@@ -11,9 +11,9 @@ export class StaffRequirementFulfillment {
   @JoinColumn({ name: 'requirementId' })
   requirement!: StaffRequirement;
 
-  @ManyToOne(() => Staff, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => Staff, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'staffId' })
-  staff!: Staff;
+  staff!: Staff | null;
 
   @Column({ type: 'timestamp', nullable: true })
   startAt!: Date | null;

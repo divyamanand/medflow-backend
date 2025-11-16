@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, OneToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, OneToOne, JoinColumn, DeleteDateColumn } from 'typeorm';
 import { Specialty } from './specialty.entity';
 import { StaffSpecialty } from './staff-specialty.entity';
 import { Timings } from './timings.entity';
@@ -19,6 +19,9 @@ export class Staff {
   @UpdateDateColumn()
   updatedAt!: Date;
 
+  @DeleteDateColumn({ nullable: true })
+  deletedAt?: Date | null;
+
   @OneToMany(() => StaffSpecialty, (ss) => ss.staff)
   staffSpecialties!: StaffSpecialty[];
 
@@ -29,7 +32,7 @@ export class Staff {
   leaves!: Leave[];
 
   // Link to base user for authentication/authorization
-  @OneToOne(() => User, (u: User) => u.staff, { nullable: true })
-  @JoinColumn({ name: 'userId' })
+  @OneToOne(() => User, (u: User) => u.staff, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'userId', referencedColumnName: 'id', foreignKeyConstraintName: 'fk_staff_user' })
   user?: User | null;
 }

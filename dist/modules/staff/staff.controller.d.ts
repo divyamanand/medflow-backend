@@ -4,6 +4,7 @@ export declare class StaffController {
     constructor(svc: StaffService);
     list(req: any, q: any): Promise<{
         id: string;
+        userId: string | null;
         name: string | null;
         role: import("../../entities/user.entity").UserRole | null;
         phone: string | null;
@@ -21,6 +22,7 @@ export declare class StaffController {
     leavesTable(q: any): Promise<any[]>;
     get(id: string, req: any): Promise<{
         id: string;
+        userId: string | null;
         name: string | null;
         role: import("../../entities/user.entity").UserRole | null;
         phone: string | null;
@@ -47,4 +49,5 @@ export declare class StaffController {
     getLeave(id: string, leaveId: string, req: any): Promise<import("../../entities/leave.entity").Leave | null>;
     updateLeave(id: string, leaveId: string, body: any, req: any): Promise<import("../../entities/leave.entity").Leave | null>;
     deleteLeave(id: string, leaveId: string, req: any): Promise<any>;
+    remove(id: string, req: any): Promise<any>;
 }

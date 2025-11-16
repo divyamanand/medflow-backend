@@ -7,7 +7,7 @@ export declare enum SlotSource {
 }
 export declare class AppointmentSlot {
     id: string;
-    doctor: Staff;
+    doctor: Staff | null;
     slotStart: Date;
     slotEnd: Date;
     isBooked: boolean;

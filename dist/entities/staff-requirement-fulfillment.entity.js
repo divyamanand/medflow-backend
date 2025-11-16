@@ -26,9 +26,9 @@ __decorate([
     __metadata("design:type", staff_requirement_entity_1.StaffRequirement)
 ], StaffRequirementFulfillment.prototype, "requirement", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff, { onDelete: 'RESTRICT' }),
+    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff, { nullable: true, onDelete: 'SET NULL' }),
     (0, typeorm_1.JoinColumn)({ name: 'staffId' }),
-    __metadata("design:type", staff_entity_1.Staff)
+    __metadata("design:type", Object)
 ], StaffRequirementFulfillment.prototype, "staff", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),

@@ -135,7 +135,7 @@ let PatientService = class PatientService {
         const apptMap = new Map(apptCountsRaw.map((r) => [r.patientId, parseInt(r.count, 10)]));
         const presMap = new Map(presCountsRaw.map((r) => [r.patientId, parseInt(r.count, 10)]));
         return rows.map((r) => {
-            var _a, _b, _c, _d, _e;
+            var _a, _b, _c, _d, _e, _f;
             const firstName = ((_a = r.user) === null || _a === void 0 ? void 0 : _a.firstName) || '';
             const lastName = ((_b = r.user) === null || _b === void 0 ? void 0 : _b.lastName) || '';
             const name = [firstName, lastName].join(' ').trim() || null;
@@ -144,8 +144,9 @@ let PatientService = class PatientService {
             const gender = ((_d = r.user) === null || _d === void 0 ? void 0 : _d.gender) || null;
             return {
                 id: r.id,
+                userId: ((_e = r.user) === null || _e === void 0 ? void 0 : _e.id) || null,
                 name,
-                dateOfBirth: ((_e = r.user) === null || _e === void 0 ? void 0 : _e.dateOfBirth) || null,
+                dateOfBirth: ((_f = r.user) === null || _f === void 0 ? void 0 : _f.dateOfBirth) || null,
                 gender,
                 age,
                 createdAt: r.createdAt,
@@ -190,6 +191,21 @@ let PatientService = class PatientService {
             .where('p.patientId = :pid', { pid: patientId })
             .orderBy('p.createdAt', 'DESC');
         return qb.getMany();
+    }
+    async softDelete(id) {
+        var _a;
+        const patient = await this.repo.findOne({ where: { id }, relations: ['user'] });
+        if (!patient)
+            return { id, removed: false };
+        if ((_a = patient.user) === null || _a === void 0 ? void 0 : _a.id) {
+            await this.repo.createQueryBuilder()
+                .update(patient_entity_1.Patient)
+                .set({ user: null })
+                .where('id = :id', { id })
+                .execute();
+        }
+        await this.repo.softDelete(id);
+        return { id, removed: true };
     }
 };
 exports.PatientService = PatientService;

@@ -43,9 +43,6 @@ let RequirementController = class RequirementController {
     listRoomFulfillments(id) { return this.svc.listRoomFulfillments(id); }
     createRoomFulfillment(id, body) { return this.svc.createRoomFulfillment(id, body); }
     updateRoomFulfillment(fid, body) { return this.svc.updateRoomFulfillment(fid, body); }
-    listAllItemFulfillmentsRaw() { return this.svc.listAllItemFulfillmentsRaw(); }
-    listAllStaffFulfillmentsRaw() { return this.svc.listAllStaffFulfillmentsRaw(); }
-    listAllRoomFulfillmentsRaw() { return this.svc.listAllRoomFulfillmentsRaw(); }
     getItemFulfillmentsAggregate() { return this.svc.getItemFulfillmentsTable(); }
     getStaffFulfillmentsAggregate() { return this.svc.getStaffFulfillmentsTable(); }
     getRoomFulfillmentsAggregate() { return this.svc.getRoomFulfillmentsTable(); }
@@ -231,37 +228,16 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
-], RequirementController.prototype, "listAllItemFulfillmentsRaw", null);
+], RequirementController.prototype, "getItemFulfillmentsAggregate", null);
 __decorate([
     (0, common_1.Get)('fulfillments/staff'),
     (0, roles_decorator_1.Roles)('admin'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
-], RequirementController.prototype, "listAllStaffFulfillmentsRaw", null);
-__decorate([
-    (0, common_1.Get)('fulfillments/rooms'),
-    (0, roles_decorator_1.Roles)('admin'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
-], RequirementController.prototype, "listAllRoomFulfillmentsRaw", null);
-__decorate([
-    (0, common_1.Get)('fulfillments/items/table'),
-    (0, roles_decorator_1.Roles)('admin'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
-], RequirementController.prototype, "getItemFulfillmentsAggregate", null);
-__decorate([
-    (0, common_1.Get)('fulfillments/staff/table'),
-    (0, roles_decorator_1.Roles)('admin'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
 ], RequirementController.prototype, "getStaffFulfillmentsAggregate", null);
 __decorate([
-    (0, common_1.Get)('fulfillments/rooms/table'),
+    (0, common_1.Get)('fulfillments/rooms'),
     (0, roles_decorator_1.Roles)('admin'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),

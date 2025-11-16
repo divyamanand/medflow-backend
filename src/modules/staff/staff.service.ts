@@ -1,11 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository, IsNull } from 'typeorm';
 import { Staff } from '../../entities/staff.entity';
 import { Timings } from '../../entities/timings.entity';
 import { Leave } from '../../entities/leave.entity';
 import { User, UserRole, UserType } from '../../entities/user.entity';
 import * as bcrypt from 'bcryptjs';
+import { StaffRequirementFulfillment } from '../../entities/staff-requirement-fulfillment.entity';
+import { StaffRequirement } from '../../entities/staff-requirement.entity';
+import { RequirementStatus } from '../../entities/item-requirement.entity';
 
 function withinNow(startTime: string, endTime: string, nowMinutes: number): boolean {
   // time strings HH:MM[:SS]
@@ -23,6 +26,8 @@ export class StaffService {
     @InjectRepository(Timings) private timingsRepo: Repository<Timings>,
     @InjectRepository(Leave) private leaveRepo: Repository<Leave>,
     @InjectRepository(User) private userRepo: Repository<User>,
+    @InjectRepository(StaffRequirementFulfillment) private staffFulfillRepo: Repository<StaffRequirementFulfillment>,
+    @InjectRepository(StaffRequirement) private staffReqRepo: Repository<StaffRequirement>,
   ) {}
 
   async create(data: any) {
@@ -77,7 +82,7 @@ export class StaffService {
           .andWhere('l.status = :st', { st: 'approved' })
           .andWhere(':today BETWEEN l.startDate AND l.endDate', { today: todayStr })
           .getMany();
-        const leaveSet = new Set(leaves.map(l => l.staff.id));
+                const leaveSet = new Set(leaves.map(l => l.staff?.id).filter((v): v is string => !!v));
         const timings = await this.timingsRepo.createQueryBuilder('t')
           .where('t.staffId IN (:...ids)', { ids: staffIds })
           .andWhere('t.isAvailable = true')
@@ -85,7 +90,10 @@ export class StaffService {
         const weekday = today.getDay();
         const nowMinutes = today.getHours() * 60 + today.getMinutes();
         const availSet = new Set(
-          timings.filter(t => t.weekday === weekday && withinNow(t.startTime, t.endTime, nowMinutes)).map(t => t.staff.id),
+              timings
+               .filter(t => t.weekday === weekday && withinNow(t.startTime, t.endTime, nowMinutes))
+               .map(t => t.staff?.id)
+               .filter((v): v is string => !!v),
         );
         if (filter.onLeave) rows = rows.filter(r => leaveSet.has(r.id));
         if (filter.isAvailable) rows = rows.filter(r => availSet.has(r.id) && !leaveSet.has(r.id));
@@ -142,6 +150,7 @@ export class StaffService {
       const name = [firstName, lastName].join(' ').trim() || null;
       return {
         id: s.id,
+        userId: s.user?.id || null,
         name,
         role: s.user?.role || null,
         phone: s.user?.phone || null,
@@ -163,6 +172,7 @@ export class StaffService {
     const name = [firstName, lastName].join(' ').trim() || null;
     return {
       id: s.id,
+      userId: s.user?.id || null,
       name,
       role: s.user?.role || null,
       phone: s.user?.phone || null,
@@ -233,6 +243,50 @@ export class StaffService {
       .where('id = :id AND staffId = :sid', { id: timingId, sid: staffId })
       .execute();
     return { id: timingId, removed: true } as any;
+  }
+
+  async softDelete(id: string) {
+    const staff = await this.repo.findOne({ where: { id }, relations: ['user'] });
+    if (!staff) return { id, removed: false } as any;
+
+    // Handle ongoing fulfillments: those without endAt
+          const ongoing = await this.staffFulfillRepo.find({ where: { staff: { id } as any, endAt: IsNull() } });
+    if (ongoing.length) {
+      // Group by requirementId counts
+      const counts: Record<string, number> = {};
+      for (const f of ongoing) {
+        const rid = (f as any).requirement?.id || (f as any).requirementId;
+        if (rid) counts[rid] = (counts[rid] || 0) + 1;
+      }
+      // Delete fulfillments
+      const ids = ongoing.map(f => f.id);
+      await this.staffFulfillRepo.delete(ids);
+      // Adjust requirements fulfilledCount and status
+      const requirementIds = Object.keys(counts);
+      if (requirementIds.length) {
+        const reqs = await this.staffReqRepo.find({ where: { id: In(requirementIds) } });
+        for (const req of reqs) {
+          const dec = counts[req.id] || 0;
+          req.fulfilledCount = Math.max((req.fulfilledCount || 0) - dec, 0);
+          // Recompute status based on remaining fulfillment rows
+          const remainingCount = await this.staffFulfillRepo.count({ where: { requirement: { id: req.id } as any } });
+          if (remainingCount === 0) req.status = RequirementStatus.Open;
+          else if (remainingCount < req.quantity) req.status = RequirementStatus.InProgress;
+          else req.status = RequirementStatus.Fulfilled;
+          await this.staffReqRepo.save(req);
+        }
+      }
+    }
+    if (staff.user?.id) {
+      // detach user reference before soft delete
+      await this.repo.createQueryBuilder()
+        .update(Staff)
+        .set({ user: null as any })
+        .where('id = :id', { id })
+        .execute();
+    }
+    await this.repo.softDelete(id);
+    return { id, removed: true } as any;
   }
 
   // Leaves CRUD

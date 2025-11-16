@@ -22,14 +22,14 @@ __decorate([
     __metadata("design:type", String)
 ], Prescription.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => patient_entity_1.Patient),
+    (0, typeorm_1.ManyToOne)(() => patient_entity_1.Patient, { nullable: true, onDelete: 'SET NULL' }),
     (0, typeorm_1.JoinColumn)({ name: 'patientId' }),
-    __metadata("design:type", patient_entity_1.Patient)
+    __metadata("design:type", Object)
 ], Prescription.prototype, "patient", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff),
+    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff, { nullable: true, onDelete: 'SET NULL' }),
     (0, typeorm_1.JoinColumn)({ name: 'doctorId' }),
-    __metadata("design:type", staff_entity_1.Staff)
+    __metadata("design:type", Object)
 ], Prescription.prototype, "doctor", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'date', nullable: true }),

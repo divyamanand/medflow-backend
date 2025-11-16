@@ -52,7 +52,7 @@ __decorate([
     __metadata("design:type", Object)
 ], Room.prototype, "capacity", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => patient_entity_1.Patient, { nullable: true }),
+    (0, typeorm_1.ManyToOne)(() => patient_entity_1.Patient, { nullable: true, onDelete: 'SET NULL' }),
     (0, typeorm_1.JoinColumn)({ name: 'currentPatientId' }),
     __metadata("design:type", Object)
 ], Room.prototype, "currentPatient", void 0);

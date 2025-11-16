@@ -94,6 +94,7 @@ export class PatientService {
       const gender = r.user?.gender || null;
       return {
         id: r.id,
+        userId: r.user?.id || null,
         name,
         dateOfBirth: r.user?.dateOfBirth || null,
         gender,
@@ -152,5 +153,19 @@ export class PatientService {
       .where('p.patientId = :pid', { pid: patientId })
       .orderBy('p.createdAt', 'DESC');
     return qb.getMany();
+  }
+
+  async softDelete(id: string) {
+    const patient = await this.repo.findOne({ where: { id }, relations: ['user'] });
+    if (!patient) return { id, removed: false } as any;
+    if (patient.user?.id) {
+      await this.repo.createQueryBuilder()
+        .update(Patient)
+        .set({ user: null as any })
+        .where('id = :id', { id })
+        .execute();
+    }
+    await this.repo.softDelete(id);
+    return { id, removed: true } as any;
   }
 }

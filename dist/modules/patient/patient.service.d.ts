@@ -18,4 +18,5 @@ export declare class PatientService {
     isDoctorLinkedToPatient(doctorId: string, patientId: string): Promise<boolean>;
     getAppointmentsForPatient(patientId: string): Promise<Appointment[]>;
     getPrescriptionsForPatient(patientId: string): Promise<Prescription[]>;
+    softDelete(id: string): Promise<any>;
 }

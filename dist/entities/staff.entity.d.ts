@@ -7,6 +7,7 @@ export declare class Staff {
     notes: string | null;
     createdAt: Date;
     updatedAt: Date;
+    deletedAt?: Date | null;
     staffSpecialties: StaffSpecialty[];
     timings: Timings[];
     leaves: Leave[];

@@ -189,6 +189,16 @@ let StaffController = class StaffController {
             return this.svc.deleteLeave(id, leaveId);
         throw new common_1.ForbiddenException('Not allowed');
     }
+    remove(id, req) {
+        var _a, _b;
+        const role = (_a = req.user) === null || _a === void 0 ? void 0 : _a.role;
+        const userStaffId = (_b = req.user) === null || _b === void 0 ? void 0 : _b.staffId;
+        if (role === 'admin' || role === 'receptionist')
+            return this.svc.softDelete(id);
+        if (['doctor', 'inventory', 'pharmacist', 'room_manager'].includes(role) && userStaffId === id)
+            return this.svc.softDelete(id);
+        throw new common_1.ForbiddenException('Not allowed');
+    }
 };
 exports.StaffController = StaffController;
 __decorate([
@@ -340,6 +350,14 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", void 0)
 ], StaffController.prototype, "deleteLeave", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], StaffController.prototype, "remove", null);
 exports.StaffController = StaffController = __decorate([
     (0, common_1.Controller)('staff'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

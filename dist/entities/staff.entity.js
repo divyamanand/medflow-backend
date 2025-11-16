@@ -35,6 +35,10 @@ __decorate([
     __metadata("design:type", Date)
 ], Staff.prototype, "updatedAt", void 0);
 __decorate([
+    (0, typeorm_1.DeleteDateColumn)({ nullable: true }),
+    __metadata("design:type", Object)
+], Staff.prototype, "deletedAt", void 0);
+__decorate([
     (0, typeorm_1.OneToMany)(() => staff_specialty_entity_1.StaffSpecialty, (ss) => ss.staff),
     __metadata("design:type", Array)
 ], Staff.prototype, "staffSpecialties", void 0);
@@ -47,8 +51,8 @@ __decorate([
     __metadata("design:type", Array)
 ], Staff.prototype, "leaves", void 0);
 __decorate([
-    (0, typeorm_1.OneToOne)(() => user_entity_1.User, (u) => u.staff, { nullable: true }),
-    (0, typeorm_1.JoinColumn)({ name: 'userId' }),
+    (0, typeorm_1.OneToOne)(() => user_entity_1.User, (u) => u.staff, { nullable: true, onDelete: 'SET NULL' }),
+    (0, typeorm_1.JoinColumn)({ name: 'userId', referencedColumnName: 'id', foreignKeyConstraintName: 'fk_staff_user' }),
     __metadata("design:type", Object)
 ], Staff.prototype, "user", void 0);
 exports.Staff = Staff = __decorate([

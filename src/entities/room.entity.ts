@@ -34,7 +34,7 @@ export class Room {
   @Column({ type: 'int', nullable: true })
   capacity!: number | null;
 
-  @ManyToOne(() => Patient, { nullable: true })
+  @ManyToOne(() => Patient, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'currentPatientId' })
   currentPatient!: Patient | null;
 

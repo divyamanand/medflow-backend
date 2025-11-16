@@ -20,9 +20,9 @@ __decorate([
     __metadata("design:type", String)
 ], Leave.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff, (s) => s.leaves, { onDelete: 'CASCADE' }),
+    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff, (s) => s.leaves, { nullable: true, onDelete: 'SET NULL' }),
     (0, typeorm_1.JoinColumn)({ name: 'staffId' }),
-    __metadata("design:type", staff_entity_1.Staff)
+    __metadata("design:type", Object)
 ], Leave.prototype, "staff", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'date' }),

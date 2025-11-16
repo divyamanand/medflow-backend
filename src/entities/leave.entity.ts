@@ -6,9 +6,9 @@ export class Leave {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ManyToOne(() => Staff, (s) => s.leaves, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Staff, (s) => s.leaves, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'staffId' })
-  staff!: Staff;
+  staff!: Staff | null;
 
   @Column({ type: 'date' })
   startDate!: string;

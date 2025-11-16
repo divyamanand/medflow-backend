@@ -54,6 +54,9 @@ const timings_entity_1 = require("../../entities/timings.entity");
 const leave_entity_1 = require("../../entities/leave.entity");
 const user_entity_1 = require("../../entities/user.entity");
 const bcrypt = __importStar(require("bcryptjs"));
+const staff_requirement_fulfillment_entity_1 = require("../../entities/staff-requirement-fulfillment.entity");
+const staff_requirement_entity_1 = require("../../entities/staff-requirement.entity");
+const item_requirement_entity_1 = require("../../entities/item-requirement.entity");
 function withinNow(startTime, endTime, nowMinutes) {
     const [sh, sm] = startTime.split(':').map(v => parseInt(v || '0', 10));
     const [eh, em] = endTime.split(':').map(v => parseInt(v || '0', 10));
@@ -62,11 +65,13 @@ function withinNow(startTime, endTime, nowMinutes) {
     return nowMinutes >= startM && nowMinutes < endM;
 }
 let StaffService = class StaffService {
-    constructor(repo, timingsRepo, leaveRepo, userRepo) {
+    constructor(repo, timingsRepo, leaveRepo, userRepo, staffFulfillRepo, staffReqRepo) {
         this.repo = repo;
         this.timingsRepo = timingsRepo;
         this.leaveRepo = leaveRepo;
         this.userRepo = userRepo;
+        this.staffFulfillRepo = staffFulfillRepo;
+        this.staffReqRepo = staffReqRepo;
     }
     async create(data) {
         const { email, password, role, firstName, lastName, dateOfBirth, gender, phone, notes } = data || {};
@@ -115,14 +120,17 @@ let StaffService = class StaffService {
                     .andWhere('l.status = :st', { st: 'approved' })
                     .andWhere(':today BETWEEN l.startDate AND l.endDate', { today: todayStr })
                     .getMany();
-                const leaveSet = new Set(leaves.map(l => l.staff.id));
+                const leaveSet = new Set(leaves.map(l => { var _a; return (_a = l.staff) === null || _a === void 0 ? void 0 : _a.id; }).filter((v) => !!v));
                 const timings = await this.timingsRepo.createQueryBuilder('t')
                     .where('t.staffId IN (:...ids)', { ids: staffIds })
                     .andWhere('t.isAvailable = true')
                     .getMany();
                 const weekday = today.getDay();
                 const nowMinutes = today.getHours() * 60 + today.getMinutes();
-                const availSet = new Set(timings.filter(t => t.weekday === weekday && withinNow(t.startTime, t.endTime, nowMinutes)).map(t => t.staff.id));
+                const availSet = new Set(timings
+                    .filter(t => t.weekday === weekday && withinNow(t.startTime, t.endTime, nowMinutes))
+                    .map(t => { var _a; return (_a = t.staff) === null || _a === void 0 ? void 0 : _a.id; })
+                    .filter((v) => !!v));
                 if (filter.onLeave)
                     rows = rows.filter(r => leaveSet.has(r.id));
                 if (filter.isAvailable)
@@ -174,16 +182,17 @@ let StaffService = class StaffService {
         const ids = rows.map((r) => r.id);
         const specMap = await this.loadSpecialtiesMap(ids);
         return rows.map((s) => {
-            var _a, _b, _c, _d, _e;
+            var _a, _b, _c, _d, _e, _f;
             const firstName = ((_a = s.user) === null || _a === void 0 ? void 0 : _a.firstName) || '';
             const lastName = ((_b = s.user) === null || _b === void 0 ? void 0 : _b.lastName) || '';
             const name = [firstName, lastName].join(' ').trim() || null;
             return {
                 id: s.id,
+                userId: ((_c = s.user) === null || _c === void 0 ? void 0 : _c.id) || null,
                 name,
-                role: ((_c = s.user) === null || _c === void 0 ? void 0 : _c.role) || null,
-                phone: ((_d = s.user) === null || _d === void 0 ? void 0 : _d.phone) || null,
-                email: ((_e = s.user) === null || _e === void 0 ? void 0 : _e.email) || null,
+                role: ((_d = s.user) === null || _d === void 0 ? void 0 : _d.role) || null,
+                phone: ((_e = s.user) === null || _e === void 0 ? void 0 : _e.phone) || null,
+                email: ((_f = s.user) === null || _f === void 0 ? void 0 : _f.email) || null,
                 notes: s.notes || null,
                 createdAt: s.createdAt,
                 updatedAt: s.updatedAt,
@@ -192,7 +201,7 @@ let StaffService = class StaffService {
         });
     }
     async findOneDetailed(id) {
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c, _d, _e, _f;
         const s = await this.findOne(id);
         if (!s)
             return null;
@@ -202,10 +211,11 @@ let StaffService = class StaffService {
         const name = [firstName, lastName].join(' ').trim() || null;
         return {
             id: s.id,
+            userId: ((_c = s.user) === null || _c === void 0 ? void 0 : _c.id) || null,
             name,
-            role: ((_c = s.user) === null || _c === void 0 ? void 0 : _c.role) || null,
-            phone: ((_d = s.user) === null || _d === void 0 ? void 0 : _d.phone) || null,
-            email: ((_e = s.user) === null || _e === void 0 ? void 0 : _e.email) || null,
+            role: ((_d = s.user) === null || _d === void 0 ? void 0 : _d.role) || null,
+            phone: ((_e = s.user) === null || _e === void 0 ? void 0 : _e.phone) || null,
+            email: ((_f = s.user) === null || _f === void 0 ? void 0 : _f.email) || null,
             notes: s.notes || null,
             createdAt: s.createdAt,
             updatedAt: s.updatedAt,
@@ -262,6 +272,48 @@ let StaffService = class StaffService {
             .where('id = :id AND staffId = :sid', { id: timingId, sid: staffId })
             .execute();
         return { id: timingId, removed: true };
+    }
+    async softDelete(id) {
+        var _a, _b;
+        const staff = await this.repo.findOne({ where: { id }, relations: ['user'] });
+        if (!staff)
+            return { id, removed: false };
+        const ongoing = await this.staffFulfillRepo.find({ where: { staff: { id }, endAt: (0, typeorm_2.IsNull)() } });
+        if (ongoing.length) {
+            const counts = {};
+            for (const f of ongoing) {
+                const rid = ((_a = f.requirement) === null || _a === void 0 ? void 0 : _a.id) || f.requirementId;
+                if (rid)
+                    counts[rid] = (counts[rid] || 0) + 1;
+            }
+            const ids = ongoing.map(f => f.id);
+            await this.staffFulfillRepo.delete(ids);
+            const requirementIds = Object.keys(counts);
+            if (requirementIds.length) {
+                const reqs = await this.staffReqRepo.find({ where: { id: (0, typeorm_2.In)(requirementIds) } });
+                for (const req of reqs) {
+                    const dec = counts[req.id] || 0;
+                    req.fulfilledCount = Math.max((req.fulfilledCount || 0) - dec, 0);
+                    const remainingCount = await this.staffFulfillRepo.count({ where: { requirement: { id: req.id } } });
+                    if (remainingCount === 0)
+                        req.status = item_requirement_entity_1.RequirementStatus.Open;
+                    else if (remainingCount < req.quantity)
+                        req.status = item_requirement_entity_1.RequirementStatus.InProgress;
+                    else
+                        req.status = item_requirement_entity_1.RequirementStatus.Fulfilled;
+                    await this.staffReqRepo.save(req);
+                }
+            }
+        }
+        if ((_b = staff.user) === null || _b === void 0 ? void 0 : _b.id) {
+            await this.repo.createQueryBuilder()
+                .update(staff_entity_1.Staff)
+                .set({ user: null })
+                .where('id = :id', { id })
+                .execute();
+        }
+        await this.repo.softDelete(id);
+        return { id, removed: true };
     }
     listLeaves(staffId) {
         return this.leaveRepo.find({ where: { staff: { id: staffId } } });
@@ -353,7 +405,11 @@ exports.StaffService = StaffService = __decorate([
     __param(1, (0, typeorm_1.InjectRepository)(timings_entity_1.Timings)),
     __param(2, (0, typeorm_1.InjectRepository)(leave_entity_1.Leave)),
     __param(3, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
+    __param(4, (0, typeorm_1.InjectRepository)(staff_requirement_fulfillment_entity_1.StaffRequirementFulfillment)),
+    __param(5, (0, typeorm_1.InjectRepository)(staff_requirement_entity_1.StaffRequirement)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository])

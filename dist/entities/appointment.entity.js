@@ -21,12 +21,12 @@ __decorate([
     __metadata("design:type", String)
 ], Appointment.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => patient_entity_1.Patient, { nullable: false }),
+    (0, typeorm_1.ManyToOne)(() => patient_entity_1.Patient, { nullable: true, onDelete: 'SET NULL' }),
     (0, typeorm_1.JoinColumn)({ name: 'patientId' }),
-    __metadata("design:type", patient_entity_1.Patient)
+    __metadata("design:type", Object)
 ], Appointment.prototype, "patient", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff, { nullable: false }),
+    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff, { nullable: true, onDelete: 'SET NULL' }),
     (0, typeorm_1.JoinColumn)({ name: 'doctorId' }),
     __metadata("design:type", Object)
 ], Appointment.prototype, "doctor", void 0);

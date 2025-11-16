@@ -23,9 +23,6 @@ export declare class RequirementController {
     listRoomFulfillments(id: string): Promise<import("../../entities/room-requirement-fulfillment.entity").RoomRequirementFulfillment[]>;
     createRoomFulfillment(id: string, body: any): Promise<import("../../entities/room-requirement-fulfillment.entity").RoomRequirementFulfillment>;
     updateRoomFulfillment(fid: string, body: any): Promise<import("../../entities/room-requirement-fulfillment.entity").RoomRequirementFulfillment>;
-    listAllItemFulfillmentsRaw(): Promise<import("../../entities/item-requirement-fulfillment.entity").ItemRequirementFulfillment[]>;
-    listAllStaffFulfillmentsRaw(): Promise<import("../../entities/staff-requirement-fulfillment.entity").StaffRequirementFulfillment[]>;
-    listAllRoomFulfillmentsRaw(): Promise<import("../../entities/room-requirement-fulfillment.entity").RoomRequirementFulfillment[]>;
     getItemFulfillmentsAggregate(): Promise<{
         requirementId: any;
         quantity: number;

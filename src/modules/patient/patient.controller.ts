@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, Put, UseGuards, Req, ForbiddenException, Query } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Put, UseGuards, Req, ForbiddenException, Query, Delete } from '@nestjs/common';
 import { PatientService } from './patient.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -26,9 +26,18 @@ export class PatientController {
   @Roles('admin','receptionist','doctor','patient')
   async get(@Param('id') id: string, @Req() req: any) {
     const role = req.user?.role;
-    if (role === 'admin' || role === 'receptionist') return this.svc.findOne(id);
-    if (role === 'patient' && req.user?.patientId === id) return this.svc.findOne(id);
-    if (role === 'doctor' && await this.svc.isDoctorLinkedToPatient(req.user?.staffId, id)) return this.svc.findOne(id);
+    if (role === 'admin' || role === 'receptionist') {
+      const p = await this.svc.findOne(id);
+      return p ? ({ ...p, userId: (p as any)?.user?.id ?? null } as any) : p;
+    }
+    if (role === 'patient' && req.user?.patientId === id) {
+      const p = await this.svc.findOne(id);
+      return p ? ({ ...p, userId: (p as any)?.user?.id ?? null } as any) : p;
+    }
+    if (role === 'doctor' && await this.svc.isDoctorLinkedToPatient(req.user?.staffId, id)) {
+      const p = await this.svc.findOne(id);
+      return p ? ({ ...p, userId: (p as any)?.user?.id ?? null } as any) : p;
+    }
     throw new ForbiddenException('Not allowed');
   }
 
@@ -83,5 +92,12 @@ export class PatientController {
     if (role === 'patient' && req.user?.patientId === id) return this.svc.getPrescriptionsForPatient(id);
     if (role === 'doctor' && await this.svc.isDoctorLinkedToPatient(req.user?.staffId, id)) return this.svc.getPrescriptionsForPatient(id);
     throw new ForbiddenException('Not allowed');
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('admin','receptionist')
+  async remove(@Param('id') id: string) {
+    return this.svc.softDelete(id);
   }
 }

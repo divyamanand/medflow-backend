@@ -149,4 +149,12 @@ export class StaffController {
     throw new ForbiddenException('Not allowed');
   }
 
+  @Delete(':id')
+  remove(@Param('id') id: string, @Req() req: any) {
+    const role = req.user?.role; const userStaffId = req.user?.staffId;
+    if (role === 'admin' || role === 'receptionist') return this.svc.softDelete(id);
+    if (['doctor','inventory','pharmacist','room_manager'].includes(role) && userStaffId === id) return this.svc.softDelete(id);
+    throw new ForbiddenException('Not allowed');
+  }
+
 }

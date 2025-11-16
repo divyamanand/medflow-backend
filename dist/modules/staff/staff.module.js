@@ -15,12 +15,14 @@ const staff_entity_1 = require("../../entities/staff.entity");
 const timings_entity_1 = require("../../entities/timings.entity");
 const leave_entity_1 = require("../../entities/leave.entity");
 const user_entity_1 = require("../../entities/user.entity");
+const staff_requirement_entity_1 = require("../../entities/staff-requirement.entity");
+const staff_requirement_fulfillment_entity_1 = require("../../entities/staff-requirement-fulfillment.entity");
 let StaffModule = class StaffModule {
 };
 exports.StaffModule = StaffModule;
 exports.StaffModule = StaffModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([staff_entity_1.Staff, timings_entity_1.Timings, leave_entity_1.Leave, user_entity_1.User])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([staff_entity_1.Staff, timings_entity_1.Timings, leave_entity_1.Leave, user_entity_1.User, staff_requirement_entity_1.StaffRequirement, staff_requirement_fulfillment_entity_1.StaffRequirementFulfillment])],
         controllers: [staff_controller_1.StaffController],
         providers: [staff_service_1.StaffService],
         exports: [staff_service_1.StaffService]

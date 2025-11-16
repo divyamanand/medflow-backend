@@ -3,12 +3,16 @@ import { Staff } from '../../entities/staff.entity';
 import { Timings } from '../../entities/timings.entity';
 import { Leave } from '../../entities/leave.entity';
 import { User, UserRole } from '../../entities/user.entity';
+import { StaffRequirementFulfillment } from '../../entities/staff-requirement-fulfillment.entity';
+import { StaffRequirement } from '../../entities/staff-requirement.entity';
 export declare class StaffService {
     private repo;
     private timingsRepo;
     private leaveRepo;
     private userRepo;
-    constructor(repo: Repository<Staff>, timingsRepo: Repository<Timings>, leaveRepo: Repository<Leave>, userRepo: Repository<User>);
+    private staffFulfillRepo;
+    private staffReqRepo;
+    constructor(repo: Repository<Staff>, timingsRepo: Repository<Timings>, leaveRepo: Repository<Leave>, userRepo: Repository<User>, staffFulfillRepo: Repository<StaffRequirementFulfillment>, staffReqRepo: Repository<StaffRequirement>);
     create(data: any): Promise<Staff>;
     findAll(filter?: any): Promise<Staff[]>;
     findOne(id: string): Promise<Staff | null>;
@@ -16,6 +20,7 @@ export declare class StaffService {
     private loadSpecialtiesMap;
     findAllDetailed(filter?: any): Promise<{
         id: string;
+        userId: string | null;
         name: string | null;
         role: UserRole | null;
         phone: string | null;
@@ -31,6 +36,7 @@ export declare class StaffService {
     }[]>;
     findOneDetailed(id: string): Promise<{
         id: string;
+        userId: string | null;
         name: string | null;
         role: UserRole | null;
         phone: string | null;
@@ -51,6 +57,7 @@ export declare class StaffService {
     getTimingById(staffId: string, timingId: string): Promise<Timings | null>;
     updateTiming(staffId: string, timingId: string, data: Partial<Timings>): Promise<Timings | null>;
     deleteTiming(staffId: string, timingId: string): Promise<any>;
+    softDelete(id: string): Promise<any>;
     listLeaves(staffId: string): Promise<Leave[]>;
     getLeaveById(staffId: string, leaveId: string): Promise<Leave | null>;
     updateLeave(staffId: string, leaveId: string, data: Partial<Leave>): Promise<Leave | null>;

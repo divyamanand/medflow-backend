@@ -5,5 +5,6 @@ export declare class Patient {
     primaryPhysician: Staff | null;
     createdAt: Date;
     updatedAt: Date;
+    deletedAt?: Date | null;
     user?: User | null;
 }

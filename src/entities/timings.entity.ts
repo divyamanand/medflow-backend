@@ -14,9 +14,9 @@ export class Timings {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ManyToOne(() => Staff, (s) => s.timings, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Staff, (s) => s.timings, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'staffId' })
-  staff!: Staff;
+  staff!: Staff | null;
 
   @Column({ type: 'int' })
   weekday!: number; // 0-6

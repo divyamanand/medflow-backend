@@ -33,14 +33,20 @@ let PatientController = class PatientController {
         return this.svc.findAllSummaries(filter);
     }
     async get(id, req) {
-        var _a, _b, _c;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
         const role = (_a = req.user) === null || _a === void 0 ? void 0 : _a.role;
-        if (role === 'admin' || role === 'receptionist')
-            return this.svc.findOne(id);
-        if (role === 'patient' && ((_b = req.user) === null || _b === void 0 ? void 0 : _b.patientId) === id)
-            return this.svc.findOne(id);
-        if (role === 'doctor' && await this.svc.isDoctorLinkedToPatient((_c = req.user) === null || _c === void 0 ? void 0 : _c.staffId, id))
-            return this.svc.findOne(id);
+        if (role === 'admin' || role === 'receptionist') {
+            const p = await this.svc.findOne(id);
+            return p ? { ...p, userId: (_c = (_b = p === null || p === void 0 ? void 0 : p.user) === null || _b === void 0 ? void 0 : _b.id) !== null && _c !== void 0 ? _c : null } : p;
+        }
+        if (role === 'patient' && ((_d = req.user) === null || _d === void 0 ? void 0 : _d.patientId) === id) {
+            const p = await this.svc.findOne(id);
+            return p ? { ...p, userId: (_f = (_e = p === null || p === void 0 ? void 0 : p.user) === null || _e === void 0 ? void 0 : _e.id) !== null && _f !== void 0 ? _f : null } : p;
+        }
+        if (role === 'doctor' && await this.svc.isDoctorLinkedToPatient((_g = req.user) === null || _g === void 0 ? void 0 : _g.staffId, id)) {
+            const p = await this.svc.findOne(id);
+            return p ? { ...p, userId: (_j = (_h = p === null || p === void 0 ? void 0 : p.user) === null || _h === void 0 ? void 0 : _h.id) !== null && _j !== void 0 ? _j : null } : p;
+        }
         throw new common_1.ForbiddenException('Not allowed');
     }
     create(body) { return this.svc.create(body); }
@@ -91,6 +97,9 @@ let PatientController = class PatientController {
         if (role === 'doctor' && await this.svc.isDoctorLinkedToPatient((_c = req.user) === null || _c === void 0 ? void 0 : _c.staffId, id))
             return this.svc.getPrescriptionsForPatient(id);
         throw new common_1.ForbiddenException('Not allowed');
+    }
+    async remove(id) {
+        return this.svc.softDelete(id);
     }
 };
 exports.PatientController = PatientController;
@@ -163,6 +172,15 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], PatientController.prototype, "prescriptions", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('admin', 'receptionist'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], PatientController.prototype, "remove", null);
 exports.PatientController = PatientController = __decorate([
     (0, common_1.Controller)('patients'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

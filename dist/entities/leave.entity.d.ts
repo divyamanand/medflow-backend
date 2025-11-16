@@ -1,7 +1,7 @@
 import { Staff } from './staff.entity';
 export declare class Leave {
     id: string;
-    staff: Staff;
+    staff: Staff | null;
     startDate: string;
     endDate: string;
     reason: string | null;

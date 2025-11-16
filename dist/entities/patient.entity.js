@@ -21,7 +21,7 @@ __decorate([
     __metadata("design:type", String)
 ], Patient.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff, { nullable: true }),
+    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff, { nullable: true, onDelete: 'SET NULL' }),
     (0, typeorm_1.JoinColumn)({ name: 'primaryPhysicianId' }),
     __metadata("design:type", Object)
 ], Patient.prototype, "primaryPhysician", void 0);
@@ -34,8 +34,12 @@ __decorate([
     __metadata("design:type", Date)
 ], Patient.prototype, "updatedAt", void 0);
 __decorate([
-    (0, typeorm_1.OneToOne)(() => user_entity_1.User, (u) => u.patient, { nullable: true }),
-    (0, typeorm_1.JoinColumn)({ name: 'userId' }),
+    (0, typeorm_1.DeleteDateColumn)({ nullable: true }),
+    __metadata("design:type", Object)
+], Patient.prototype, "deletedAt", void 0);
+__decorate([
+    (0, typeorm_1.OneToOne)(() => user_entity_1.User, (u) => u.patient, { nullable: true, onDelete: 'SET NULL' }),
+    (0, typeorm_1.JoinColumn)({ name: 'userId', referencedColumnName: 'id', foreignKeyConstraintName: 'fk_patient_user' }),
     __metadata("design:type", Object)
 ], Patient.prototype, "user", void 0);
 exports.Patient = Patient = __decorate([

@@ -27,9 +27,9 @@ __decorate([
     __metadata("design:type", String)
 ], AppointmentSlot.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff, { onDelete: 'CASCADE' }),
+    (0, typeorm_1.ManyToOne)(() => staff_entity_1.Staff, { nullable: true, onDelete: 'SET NULL' }),
     (0, typeorm_1.JoinColumn)({ name: 'doctor_id' }),
-    __metadata("design:type", staff_entity_1.Staff)
+    __metadata("design:type", Object)
 ], AppointmentSlot.prototype, "doctor", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'timestamp' }),

@@ -13,9 +13,9 @@ export class AppointmentSlot {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ManyToOne(() => Staff, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Staff, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'doctor_id' })
-  doctor!: Staff;
+  doctor!: Staff | null;
 
   @Column({ type: 'timestamp' })
   slotStart!: Date;

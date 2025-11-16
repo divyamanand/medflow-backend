@@ -1,7 +1,7 @@
 import { Staff } from './staff.entity';
 export declare class Timings {
     id: string;
-    staff: Staff;
+    staff: Staff | null;
     weekday: number;
     startTime: string;
     endTime: string;
