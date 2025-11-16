@@ -101,6 +101,11 @@ jobs:
 
             APP_NAME="${{ env.APP_NAME }}"; REMOTE_DIR="${{ env.REMOTE_DIR }}"; cd "$REMOTE_DIR"
 
+            echo "Cleaning deployment directory"
+            sudo rm -rf "$REMOTE_DIR" || true
+            mkdir -p "$REMOTE_DIR"
+            cd "$REMOTE_DIR"
+
             echo "Ensuring Docker engine present";
             if ! command -v docker >/dev/null 2>&1; then
               sudo apt-get update -y
