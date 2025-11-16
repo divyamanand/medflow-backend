@@ -43,6 +43,10 @@ __decorate([
     __metadata("design:type", Object)
 ], ItemRequirementFulfillment.prototype, "endAt", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", Object)
+], ItemRequirementFulfillment.prototype, "notes", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], ItemRequirementFulfillment.prototype, "createdAt", void 0);

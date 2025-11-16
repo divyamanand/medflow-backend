@@ -42,6 +42,14 @@ __decorate([
     __metadata("design:type", Number)
 ], ItemRequirement.prototype, "fulfilledCount", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Object)
+], ItemRequirement.prototype, "startTime", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Object)
+], ItemRequirement.prototype, "estimatedEndTime", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'enum', enum: RequirementStatus, default: RequirementStatus.Open }),
     __metadata("design:type", String)
 ], ItemRequirement.prototype, "status", void 0);

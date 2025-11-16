@@ -9,6 +9,9 @@ import { RoomRequirement } from '../../entities/room-requirement.entity';
 import { RoomRequirementFulfillment } from '../../entities/room-requirement-fulfillment.entity';
 import { InventoryItem } from '../../entities/inventory-item.entity';
 import { InventoryTransaction } from '../../entities/inventory-transaction.entity';
+import { Room } from '../../entities/room.entity';
+import { Staff } from '../../entities/staff.entity';
+import { User } from '../../entities/user.entity';
 
 @Injectable()
 export class RequirementService {
@@ -37,6 +40,8 @@ export class RequirementService {
       quantity: body.quantity!,
       notes: body.notes ?? null,
       status: RequirementStatus.Open,
+      startTime: body.startTime ? new Date(body.startTime as any) as any : null,
+      estimatedEndTime: body.estimatedEndTime ? new Date(body.estimatedEndTime as any) as any : null,
     });
     return this.itemReqRepo.save(r);
   }
@@ -45,6 +50,8 @@ export class RequirementService {
     if (typeof body.status !== 'undefined') r.status = body.status;
     if (typeof body.notes !== 'undefined') r.notes = body.notes ?? null;
     if (typeof body.quantity !== 'undefined') r.quantity = body.quantity!;
+    if (typeof body.startTime !== 'undefined') r.startTime = body.startTime ? new Date(body.startTime as any) as any : null;
+    if (typeof body.estimatedEndTime !== 'undefined') r.estimatedEndTime = body.estimatedEndTime ? new Date(body.estimatedEndTime as any) as any : null;
     return this.itemReqRepo.save(r);
   }
   async listItemFulfillments(requirementId: string) {
@@ -70,6 +77,7 @@ export class RequirementService {
       quantity: body.quantity,
       startAt: body.startAt ? new Date(body.startAt) : null,
       endAt: body.endAt ? new Date(body.endAt) : null,
+      notes: (body as any).notes ?? null,
     });
     const saved = await this.itemFulfillRepo.save(f);
     // Create transaction (type 'fulfill') and update cached stock quantity
@@ -94,6 +102,7 @@ export class RequirementService {
     if (typeof body.startAt !== 'undefined') f.startAt = body.startAt ? new Date(body.startAt) : null;
     if (typeof body.endAt !== 'undefined') f.endAt = body.endAt ? new Date(body.endAt) : null;
     if (typeof body.quantity !== 'undefined') f.quantity = body.quantity!;
+    if (typeof (body as any).notes !== 'undefined') f.notes = (body as any).notes ?? null;
     const saved = await this.itemFulfillRepo.save(f);
     await this.recomputeItemRequirementStatus(f.requirement.id);
     return saved;
@@ -128,6 +137,8 @@ export class RequirementService {
       quantity: body.quantity!,
       notes: body.notes ?? null,
       status: RequirementStatus.Open,
+      startTime: body.startTime ? new Date(body.startTime as any) as any : null,
+      estimatedEndTime: body.estimatedEndTime ? new Date(body.estimatedEndTime as any) as any : null,
     });
     return this.staffReqRepo.save(r);
   }
@@ -137,6 +148,8 @@ export class RequirementService {
     if (typeof body.notes !== 'undefined') r.notes = body.notes ?? null;
     if (typeof body.quantity !== 'undefined') r.quantity = body.quantity!;
     if (typeof body.roleNeeded !== 'undefined') r.roleNeeded = body.roleNeeded!;
+    if (typeof body.startTime !== 'undefined') r.startTime = body.startTime ? new Date(body.startTime as any) as any : null;
+    if (typeof body.estimatedEndTime !== 'undefined') r.estimatedEndTime = body.estimatedEndTime ? new Date(body.estimatedEndTime as any) as any : null;
     return this.staffReqRepo.save(r);
   }
   async listStaffFulfillments(requirementId: string) {
@@ -154,6 +167,7 @@ export class RequirementService {
       staff: { id: body.staffId } as any,
       startAt: body.startAt ? new Date(body.startAt) : null,
       endAt: body.endAt ? new Date(body.endAt) : null,
+      notes: (body as any).notes ?? null,
     });
     const saved = await this.staffFulfillRepo.save(f);
     // Increment fulfilled count per fulfillment
@@ -166,6 +180,7 @@ export class RequirementService {
     if (!f) throw new NotFoundException('Staff fulfillment not found');
     if (typeof body.startAt !== 'undefined') f.startAt = body.startAt ? new Date(body.startAt) : null;
     if (typeof body.endAt !== 'undefined') f.endAt = body.endAt ? new Date(body.endAt) : null;
+    if (typeof (body as any).notes !== 'undefined') f.notes = (body as any).notes ?? null;
     const saved = await this.staffFulfillRepo.save(f);
     await this.recomputeStaffRequirementStatus(f.requirement.id);
     return saved;
@@ -196,6 +211,8 @@ export class RequirementService {
       quantity: body.quantity!,
       notes: body.notes ?? null,
       status: RequirementStatus.Open,
+      startTime: body.startTime ? new Date(body.startTime as any) as any : null,
+      estimatedEndTime: body.estimatedEndTime ? new Date(body.estimatedEndTime as any) as any : null,
     });
     return this.roomReqRepo.save(r);
   }
@@ -205,6 +222,8 @@ export class RequirementService {
     if (typeof body.notes !== 'undefined') r.notes = body.notes ?? null;
     if (typeof body.quantity !== 'undefined') r.quantity = body.quantity!;
     if (typeof body.roomType !== 'undefined') r.roomType = body.roomType!;
+    if (typeof body.startTime !== 'undefined') r.startTime = body.startTime ? new Date(body.startTime as any) as any : null;
+    if (typeof body.estimatedEndTime !== 'undefined') r.estimatedEndTime = body.estimatedEndTime ? new Date(body.estimatedEndTime as any) as any : null;
     return this.roomReqRepo.save(r);
   }
   async listRoomFulfillments(requirementId: string) {
@@ -222,6 +241,7 @@ export class RequirementService {
       room: { id: body.roomId } as any,
       startAt: body.startAt ? new Date(body.startAt) : null,
       endAt: body.endAt ? new Date(body.endAt) : null,
+      notes: (body as any).notes ?? null,
     });
     const saved = await this.roomFulfillRepo.save(f);
     // Increment fulfilled count per fulfillment
@@ -234,6 +254,7 @@ export class RequirementService {
     if (!f) throw new NotFoundException('Room fulfillment not found');
     if (typeof body.startAt !== 'undefined') f.startAt = body.startAt ? new Date(body.startAt) : null;
     if (typeof body.endAt !== 'undefined') f.endAt = body.endAt ? new Date(body.endAt) : null;
+    if (typeof (body as any).notes !== 'undefined') f.notes = (body as any).notes ?? null;
     const saved = await this.roomFulfillRepo.save(f);
     await this.recomputeRoomRequirementStatus(f.requirement.id);
     return saved;
@@ -248,5 +269,110 @@ export class RequirementService {
       req.status = RequirementStatus.InProgress;
       await this.roomReqRepo.save(req);
     }
+  }
+
+  // Aggregated fulfillment tables
+  async getItemFulfillmentsTable() {
+    const rows = await this.itemFulfillRepo
+      .createQueryBuilder('f')
+      .innerJoin(ItemRequirement, 'r', 'r.id = f.requirementId')
+      .leftJoin(InventoryItem, 'ii', 'ii.id = f.inventoryItemId')
+      .select([
+        'r.id as requirementId',
+        'r.quantity as requirementQuantity',
+        'r.notes as requirementNotes',
+        'r.startTime as requirementStartTime',
+        'r.estimatedEndTime as requirementEndTime',
+        'f.inventoryItemId as itemId',
+        'ii.name as itemName',
+      ])
+      .orderBy('r.createdAt', 'DESC')
+      .addOrderBy('f.createdAt', 'DESC')
+      .getRawMany();
+    return rows.map((r: any) => ({
+      requirementId: r.requirementId,
+      quantity: Number(r.requirementQuantity),
+      notes: r.requirementNotes ?? null,
+      startTime: r.requirementStartTime ?? null,
+      endTime: r.requirementEndTime ?? null,
+      itemId: r.itemId,
+      itemName: r.itemName ?? null,
+    }));
+  }
+
+  async getStaffFulfillmentsTable() {
+    const rows = await this.staffFulfillRepo
+      .createQueryBuilder('f')
+      .innerJoin(StaffRequirement, 'r', 'r.id = f.requirementId')
+      .leftJoin(Staff, 's', 's.id = f.staffId')
+      .leftJoin(User, 'u', 'u.id = s.userId')
+      .select([
+        'f.id as id',
+        'f.requirementId as requirementId',
+        'f.staffId as staffId',
+        'f.startAt as startAt',
+        'f.endAt as endAt',
+        'f.notes as notes',
+        'f.createdAt as createdAt',
+        'f.updatedAt as updatedAt',
+        'u.role as staffRole',
+        "(COALESCE(u.firstName,'') || ' ' || COALESCE(u.lastName,'')) as staffName",
+      ])
+      .orderBy('f.createdAt', 'DESC')
+      .getRawMany();
+    return rows.map((r: any) => ({
+      id: r.id,
+      requirementId: r.requirementId,
+      staffId: r.staffId,
+      startAt: r.startAt ?? null,
+      endAt: r.endAt ?? null,
+      notes: r.notes ?? null,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      staffName: (r.staffName || '').trim() || null,
+      staffRole: r.staffRole ?? null,
+    }));
+  }
+
+  async getRoomFulfillmentsTable() {
+    const rows = await this.roomFulfillRepo
+      .createQueryBuilder('f')
+      .innerJoin(RoomRequirement, 'r', 'r.id = f.requirementId')
+      .leftJoin(Room, 'room', 'room.id = f.roomId')
+      .select([
+        'f.id as id',
+        'f.requirementId as requirementId',
+        'f.roomId as roomId',
+        'f.startAt as startAt',
+        'f.endAt as endAt',
+        'f.notes as notes',
+        'f.createdAt as createdAt',
+        'f.updatedAt as updatedAt',
+        'room.name as roomName',
+      ])
+      .orderBy('f.createdAt', 'DESC')
+      .getRawMany();
+    return rows.map((r: any) => ({
+      id: r.id,
+      requirementId: r.requirementId,
+      roomId: r.roomId,
+      startAt: r.startAt ?? null,
+      endAt: r.endAt ?? null,
+      notes: r.notes ?? null,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      roomName: r.roomName ?? null,
+    }));
+  }
+
+  // RAW lists for fulfillments (no joins, no reshaping)
+  listAllItemFulfillmentsRaw() {
+    return this.itemFulfillRepo.find({ order: { createdAt: 'DESC' } });
+  }
+  listAllStaffFulfillmentsRaw() {
+    return this.staffFulfillRepo.find({ order: { createdAt: 'DESC' } });
+  }
+  listAllRoomFulfillmentsRaw() {
+    return this.roomFulfillRepo.find({ order: { createdAt: 'DESC' } });
   }
 }

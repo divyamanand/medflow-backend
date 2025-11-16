@@ -23,4 +23,39 @@ export declare class RequirementController {
     listRoomFulfillments(id: string): Promise<import("../../entities/room-requirement-fulfillment.entity").RoomRequirementFulfillment[]>;
     createRoomFulfillment(id: string, body: any): Promise<import("../../entities/room-requirement-fulfillment.entity").RoomRequirementFulfillment>;
     updateRoomFulfillment(fid: string, body: any): Promise<import("../../entities/room-requirement-fulfillment.entity").RoomRequirementFulfillment>;
+    listAllItemFulfillmentsRaw(): Promise<import("../../entities/item-requirement-fulfillment.entity").ItemRequirementFulfillment[]>;
+    listAllStaffFulfillmentsRaw(): Promise<import("../../entities/staff-requirement-fulfillment.entity").StaffRequirementFulfillment[]>;
+    listAllRoomFulfillmentsRaw(): Promise<import("../../entities/room-requirement-fulfillment.entity").RoomRequirementFulfillment[]>;
+    getItemFulfillmentsAggregate(): Promise<{
+        requirementId: any;
+        quantity: number;
+        notes: any;
+        startTime: any;
+        endTime: any;
+        itemId: any;
+        itemName: any;
+    }[]>;
+    getStaffFulfillmentsAggregate(): Promise<{
+        id: any;
+        requirementId: any;
+        staffId: any;
+        startAt: any;
+        endAt: any;
+        notes: any;
+        createdAt: any;
+        updatedAt: any;
+        staffName: any;
+        staffRole: any;
+    }[]>;
+    getRoomFulfillmentsAggregate(): Promise<{
+        id: any;
+        requirementId: any;
+        roomId: any;
+        startAt: any;
+        endAt: any;
+        notes: any;
+        createdAt: any;
+        updatedAt: any;
+        roomName: any;
+    }[]>;
 }

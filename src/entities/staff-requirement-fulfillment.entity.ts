@@ -21,6 +21,9 @@ export class StaffRequirementFulfillment {
   @Column({ type: 'timestamp', nullable: true })
   endAt!: Date | null;
 
+  @Column({ type: 'text', nullable: true })
+  notes!: string | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 

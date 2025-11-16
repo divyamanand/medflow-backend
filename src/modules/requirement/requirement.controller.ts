@@ -95,4 +95,18 @@ export class RequirementController {
   @Patch('requirements/rooms/fulfillments/:fid')
   @Roles('admin')
   updateRoomFulfillment(@Param('fid') fid: string, @Body() body: any) { return this.svc.updateRoomFulfillment(fid, body); }
+
+
+  // Aggregate tables under /fulfillments with joined names
+  @Get('fulfillments/items')
+  @Roles('admin')
+  getItemFulfillmentsAggregate() { return this.svc.getItemFulfillmentsTable(); }
+
+  @Get('fulfillments/staff')
+  @Roles('admin')
+  getStaffFulfillmentsAggregate() { return this.svc.getStaffFulfillmentsTable(); }
+
+  @Get('fulfillments/rooms')
+  @Roles('admin')
+  getRoomFulfillmentsAggregate() { return this.svc.getRoomFulfillmentsTable(); }
 }

@@ -64,4 +64,39 @@ export declare class RequirementService {
         endAt?: string | null;
     }): Promise<RoomRequirementFulfillment>;
     private recomputeRoomRequirementStatus;
+    getItemFulfillmentsTable(): Promise<{
+        requirementId: any;
+        quantity: number;
+        notes: any;
+        startTime: any;
+        endTime: any;
+        itemId: any;
+        itemName: any;
+    }[]>;
+    getStaffFulfillmentsTable(): Promise<{
+        id: any;
+        requirementId: any;
+        staffId: any;
+        startAt: any;
+        endAt: any;
+        notes: any;
+        createdAt: any;
+        updatedAt: any;
+        staffName: any;
+        staffRole: any;
+    }[]>;
+    getRoomFulfillmentsTable(): Promise<{
+        id: any;
+        requirementId: any;
+        roomId: any;
+        startAt: any;
+        endAt: any;
+        notes: any;
+        createdAt: any;
+        updatedAt: any;
+        roomName: any;
+    }[]>;
+    listAllItemFulfillmentsRaw(): Promise<ItemRequirementFulfillment[]>;
+    listAllStaffFulfillmentsRaw(): Promise<StaffRequirementFulfillment[]>;
+    listAllRoomFulfillmentsRaw(): Promise<RoomRequirementFulfillment[]>;
 }

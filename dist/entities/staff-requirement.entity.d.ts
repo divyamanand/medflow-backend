@@ -5,6 +5,8 @@ export declare class StaffRequirement {
     roleNeeded: string;
     quantity: number;
     fulfilledCount: number;
+    startTime: Date | null;
+    estimatedEndTime: Date | null;
     status: RequirementStatus;
     notes: string | null;
     createdAt: Date;

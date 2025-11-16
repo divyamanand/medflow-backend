@@ -6,6 +6,7 @@ export declare class RoomRequirementFulfillment {
     room: Room;
     startAt: Date | null;
     endAt: Date | null;
+    notes: string | null;
     createdAt: Date;
     updatedAt: Date;
 }

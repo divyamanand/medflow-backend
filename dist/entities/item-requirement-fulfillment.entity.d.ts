@@ -7,6 +7,7 @@ export declare class ItemRequirementFulfillment {
     quantity: number;
     startAt: Date | null;
     endAt: Date | null;
+    notes: string | null;
     createdAt: Date;
     updatedAt: Date;
 }

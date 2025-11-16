@@ -5,6 +5,8 @@ export declare class RoomRequirement {
     roomType: string;
     quantity: number;
     fulfilledCount: number;
+    startTime: Date | null;
+    estimatedEndTime: Date | null;
     status: RequirementStatus;
     notes: string | null;
     createdAt: Date;

@@ -6,6 +6,7 @@ export declare class StaffRequirementFulfillment {
     staff: Staff;
     startAt: Date | null;
     endAt: Date | null;
+    notes: string | null;
     createdAt: Date;
     updatedAt: Date;
 }
