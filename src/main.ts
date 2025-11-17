@@ -9,7 +9,6 @@ import type { Request, Response, NextFunction } from 'express';
 async function bootstrap() {
   dotenv.config();
   const app = await NestFactory.create(AppModule, { bodyParser: false });
-  // Avoid JSON parse errors on GET/HEAD with empty bodies
   app.use((req: Request, res: Response, next: NextFunction) => (req.method === 'GET' || req.method === 'HEAD') ? next() : bodyParser.json({ strict: false })(req, res, next));
   app.use((req: Request, res: Response, next: NextFunction) => (req.method === 'GET' || req.method === 'HEAD') ? next() : bodyParser.urlencoded({ extended: true })(req, res, next));
   app.use(cookieParser());
