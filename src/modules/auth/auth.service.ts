@@ -37,7 +37,13 @@ export class AuthService {
       if (!patient) return null;
       return { id: user.id, email: user.email, role: user.role, userType: UserType.Patient, patientId: patient.id };
     }
-    const staff = await this.staffRepo.findOne({ where: { user: { id: user.id } as any } });
+    let staff = await this.staffRepo.findOne({ where: { user: { id: user.id } as any } });
+    if (!staff) {
+      // Auto-create staff profile for admin (or other staff role) if missing
+      if (user.role === UserRole.Admin || user.role !== UserRole.Patient) {
+        staff = await this.staffRepo.save(this.staffRepo.create({ user: { id: user.id } as any }));
+      }
+    }
     if (!staff) return null;
     return { id: user.id, email: user.email, role: user.role, userType: UserType.Staff, staffId: staff.id };
   }

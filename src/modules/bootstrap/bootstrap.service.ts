@@ -2,11 +2,15 @@ import { Injectable, ConflictException, ForbiddenException, BadRequestException 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole, UserType } from '../../entities/user.entity';
+import { Staff } from '../../entities/staff.entity';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class BootstrapService {
-  constructor(@InjectRepository(User) private readonly userRepo: Repository<User>) {}
+  constructor(
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(Staff) private readonly staffRepo: Repository<Staff>,
+  ) {}
 
   async createAdmin(payload: { email: string; password: string; firstName?: string; lastName?: string; phone?: string }, secretHeader?: string) {
     const adminCount = await this.userRepo.count({ where: { role: UserRole.Admin } });
@@ -32,10 +36,13 @@ export class BootstrapService {
       phone: phone ?? null,
     } as Partial<User>);
     const saved = await this.userRepo.save(user);
+    // Ensure a staff profile exists so auth.login succeeds (token enrichment)
+    const staff = await this.staffRepo.save(this.staffRepo.create({ user: { id: saved.id } as any }));
     return {
       id: saved.id,
       email: saved.email,
       role: saved.role,
+      staffId: staff.id,
       firstName: saved.firstName ?? null,
       lastName: saved.lastName ?? null,
       phone: saved.phone ?? null,
