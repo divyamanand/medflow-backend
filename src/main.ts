@@ -17,7 +17,7 @@ async function bootstrap() {
     origin: (origin: string | undefined, cb: (err: any, allow?: boolean) => void) => cb(null, true),
     credentials: true,
   });
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 8081;
   await app.listen(port);
   console.log();
 }

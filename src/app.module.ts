@@ -21,21 +21,28 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ActivityModule } from './modules/activity/activity.module';
 import { ActivityInterceptor } from './modules/activity/activity.interceptor';
 import { LeaveModule } from './modules/leave/leave.module';
+import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       useFactory: () => {
+        const url = process.env.DB_URL || process.env.DATABASE_URL;
+        if (!url) {
+          throw new Error('DATABASE_URL/DB_URL is required (pg connection string). Example: postgresql://user:pass@host:5432/dbname?sslmode=require');
+        }
+        const hostFromUrl = (() => { try { return new URL(url).hostname || ''; } catch { return ''; } })();
+        const urlRequiresSSL = url.includes('sslmode=require') || hostFromUrl.includes('supabase.co') || hostFromUrl.includes('supabase.com');
+        const useSSL = (process.env.DB_SSL === 'true') || urlRequiresSSL;
+        const sslExtra = useSSL ? { rejectUnauthorized: false } : undefined;
         return {
           type: 'postgres',
-          host: process.env.DB_HOST || 'localhost',
-          port: parseInt(process.env.DB_PORT || '5432', 10),
-          username: process.env.DB_USERNAME || 'postgres',
-          password: process.env.DB_PASSWORD || '',
-          database: process.env.DB_NAME || 'postgres',
+          url,
           entities: [join(__dirname, '/entities/*{.ts,.js}')],
           synchronize: true,
+          ssl: useSSL ? true : false,
+          extra: useSSL ? { ssl: sslExtra } : undefined,
         } as any;
       },
     }),
@@ -52,6 +59,7 @@ import { LeaveModule } from './modules/leave/leave.module';
     LeaveModule,
     StatsModule,
     UserModule,
+    BootstrapModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
