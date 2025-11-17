@@ -34,14 +34,14 @@ jobs:
 
       - name: Upload to S3
         run: |
-          aws s3 cp app.zip s3://elasticbeanstalk-ap-south-1/hospital/app-${{ github.sha }}.zip
+          aws s3 cp app.zip s3://elasticbeanstalk-ap-south-1-491159884018/hospital/app-${{ github.sha }}.zip
 
       - name: Create New EB Application Version
         run: |
           aws elasticbeanstalk create-application-version \
             --application-name "hospital" \
             --version-label "build-${{ github.sha }}" \
-            --source-bundle S3Bucket="elasticbeanstalk-ap-south-1",S3Key="hospital/app-${{ github.sha }}.zip"
+            --source-bundle S3Bucket="elasticbeanstalk-ap-south-1-491159884018",S3Key="hospital/app-${{ github.sha }}.zip"
 
       - name: Deploy to Elastic Beanstalk
         run: |
