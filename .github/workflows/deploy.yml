@@ -1,170 +1,50 @@
-name: CI/CD Deploy (NestJS + PM2)
+name: Deploy to Elastic Beanstalk
 
 on:
   push:
-    branches: [ main ]
-
-concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+    branches:
+      - main
 
 jobs:
   deploy:
+    name: Deploy Node.js App to Elastic Beanstalk
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-
-    env:
-      APP_NAME: hospital-backend
-      REMOTE_DIR: /home/ubuntu/deployment
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 18
 
-      - name: Install dependencies (clean)
-        run: npm ci
+      - name: Install Dependencies
+        run: npm install
 
-      - name: Ensure Docker & start compose services
-        run: |
-          echo "Checking Docker installation";
-          if ! command -v docker >/dev/null 2>&1; then
-            echo "Installing Docker (engine + compose plugin)";
-            sudo apt-get update -y;
-            sudo apt-get install -y ca-certificates curl gnupg;
-            install -d /etc/apt/keyrings;
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg;
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null;
-            sudo apt-get update -y;
-            sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin;
-          fi
-          echo "Docker version:"; docker --version || true
-          echo "Starting docker compose services";
-          if [ -f docker-compose.yml ]; then
-            docker compose up -d;
-            docker compose ps;
-          else
-            echo "No docker-compose.yml found; skipping container startup.";
-          fi
+      - name: Create ZIP for Deployment
+        run: zip -r app.zip . -x "*.git*" "node_modules/*"
 
-      - name: Build NestJS app
-        run: npm run build
-
-      - name: Verify build artifact
-        run: |
-          if [ ! -f dist/main.js ]; then
-            echo "dist/main.js missing after build" >&2
-            exit 1
-          fi
-
-      - name: Create .env from secret (if provided)
-        env:
-          ENV_FILE: ${{ secrets.ENV_FILE }}
-        run: |
-          if [ -n "$ENV_FILE" ]; then
-            echo "Writing .env from secret ENV_FILE";
-            printf '%s' "$ENV_FILE" > .env;
-            ls -l .env;
-          else
-            echo "No ENV_FILE secret provided; skipping .env creation.";
-          fi
-
-      - name: Copy build artifacts & .env to EC2
-        uses: appleboy/scp-action@v0.1.7
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          source: "dist,package.json,package-lock.json,.env"
-          target: "${{ env.REMOTE_DIR }}"
-          timeout: 120s
-          overwrite: true
-          debug: false
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
 
-      - name: Remote deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          timeout: 120s
-          command_timeout: 15m
-          script: |
-            set -euxo pipefail
+      - name: Upload to S3
+        run: |
+          aws s3 cp app.zip s3://elasticbeanstalk-ap-south-1/hospital/app-${{ github.sha }}.zip
 
-            APP_NAME="${{ env.APP_NAME }}"; REMOTE_DIR="${{ env.REMOTE_DIR }}"; cd "$REMOTE_DIR"
+      - name: Create New EB Application Version
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name "hospital" \
+            --version-label "build-${{ github.sha }}" \
+            --source-bundle S3Bucket="elasticbeanstalk-ap-south-1",S3Key="hospital/app-${{ github.sha }}.zip"
 
-            
-            echo "Ensuring Docker engine present";
-            if ! command -v docker >/dev/null 2>&1; then
-              sudo apt-get update -y
-              sudo apt-get install -y ca-certificates curl gnupg lsb-release
-              sudo install -m 0755 -d /etc/apt/keyrings
-              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-              sudo apt-get update -y
-              sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-              sudo systemctl enable --now docker || true
-            fi
-            docker --version || true
-
-            echo "Ensuring Docker Compose available";
-            if ! docker compose version >/dev/null 2>&1; then
-              if ! command -v docker-compose >/dev/null 2>&1; then
-                sudo curl -L "https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-                sudo chmod +x /usr/local/bin/docker-compose
-              fi
-            fi
-            (docker compose version || docker-compose --version) || true
-
-            if [ -f docker-compose.yml ] || [ -f docker-compose.yaml ]; then
-              echo "Bringing up compose services on EC2";
-              sudo docker compose up -d || sudo docker-compose up -d
-              sudo docker compose ps || sudo docker-compose ps || true
-            else
-              echo "No docker-compose file found on EC2; skipping."
-            fi
-
-            echo "Ensuring Node.js 20 present";
-            if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -c2-3)" != "20" ]; then
-              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-              sudo apt-get install -y nodejs
-            fi
-
-            echo "Ensuring PM2 present";
-            if ! command -v pm2 >/dev/null 2>&1; then
-              sudo npm install -g pm2
-            fi
-
-            echo "Installing production deps";
-            export NODE_ENV=production
-            npm ci --only=production
-
-            if [ ! -f dist/main.js ]; then
-              echo "dist/main.js missing; build on server";
-              npm run build
-            fi
-
-            START_FILE="dist/main.js"
-            if [ ! -f "$START_FILE" ]; then
-              echo "Start file $START_FILE not found" >&2; exit 2; fi
-
-            PROCESS_NAME="$APP_NAME"
-            echo "Deploying $PROCESS_NAME with PM2 (file: $START_FILE)";
-            if pm2 describe "$PROCESS_NAME" >/dev/null 2>&1; then
-              pm2 reload "$PROCESS_NAME" --update-env
-            else
-              pm2 start "$START_FILE" --name "$PROCESS_NAME" --time
-              sudo pm2 startup systemd -u ubuntu --hp /home/ubuntu || true
-            fi
-            pm2 save
-
-            echo "PM2 list:"; pm2 ls || true
-            echo "Deployment completed successfully."
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          aws elasticbeanstalk update-environment \
+            --environment-name "Hospital-env" \
+            --version-label "build-${{ github.sha }}"
