@@ -1,4 +1,4 @@
-name: Node.js CI/CD (NestJS EC2 Deployment)
+name: Node.js CI/CD (EC2 Ubuntu Deployment)
 
 on:
   push:
@@ -13,21 +13,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js (for optional local build/test cache priming)
+      # 2️⃣ Setup Node.js (for local build/test)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
-      # 3️⃣ (Optional) Local dependency install & tests (adjust as needed)
+      # 3️⃣ Install dependencies locally (optional)
       - name: Install dependencies locally
-        run: |
-          npm ci
-          # npm test   # Uncomment if you have tests
+        run: npm install
 
-      # 4️⃣ Copy project to EC2 (excluding local node_modules to speed transfer)
-      - name: Copy project files to EC2
+      # 4️⃣ Copy project to EC2
+      - name: Upload project to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.REMOTE_HOST }}
@@ -38,12 +35,9 @@ jobs:
           port: 22
           timeout: 90s
           overwrite: true
-          debug: false
-          rm: true
-          strip_components: 0
 
-      # 5️⃣ Build & deploy NestJS app + configure Nginx reverse proxy
-      - name: Build & Deploy NestJS with PM2 and Nginx
+      # 5️⃣ Deploy on EC2 via SSH
+      - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.REMOTE_HOST }}
@@ -51,91 +45,42 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           timeout: 90s
-          command_timeout: 20m
+          command_timeout: 15m
           script: |
             set -eux
 
-            APP_DIR=/home/ubuntu/hospital-app
-            APP_NAME=hospital-app
-            NODE_VERSION=20
-            RUNTIME_PORT=8081
+            cd /home/ubuntu/hospital-app
 
-            echo "🔄 Syncing to $APP_DIR" && cd "$APP_DIR"
-
-            echo "🔍 Ensuring system packages are up to date (minimal)..."
-            sudo apt-get update -y
-
-            echo "🔍 Checking Node.js environment..."
-            if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -c2- | cut -d. -f1)" != "$NODE_VERSION" ]; then
-              echo "⚙️ Installing Node.js v$NODE_VERSION..."
-              curl -fsSL https://deb.nodesource.com/setup_$NODE_VERSION.x | sudo -E bash -
+            echo "🔧 Installing Node.js if missing..."
+            if ! command -v node >/dev/null 2>&1; then
+              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
               sudo apt-get install -y nodejs
             fi
 
-            echo "🔍 Checking PM2..."
+            echo "🔧 Installing PM2 if missing..."
             if ! command -v pm2 >/dev/null 2>&1; then
-              echo "⚙️ Installing PM2 globally..."
-              sudo npm install -g pm2@latest
+              sudo npm install -g pm2
             fi
 
-            echo "🧹 Cleaning previous dependencies (if any) to ensure reproducible build..."
-            rm -rf node_modules
+            echo "📝 Writing .env from GitHub Secrets..."
+            cat <<EOF > .env
+            ${{ vars.ENV_FILE_CONTENT}}
+            EOF
 
-            echo "📦 Installing production dependencies & building NestJS..."
-            export NODE_ENV=production
-            npm ci
-            npm run build
+            echo "📦 Installing production node modules..."
+            npm ci --only=production
 
-            echo "🌐 Setting up Nginx reverse proxy (80 -> $RUNTIME_PORT)..."
-            if ! dpkg -s nginx >/dev/null 2>&1; then
-              sudo apt-get install -y nginx
-            fi
+            echo "🚀 Starting or Reloading Node.js App with PM2..."
 
-            echo "📝 Writing Nginx site config..."
-            NGINX_CONF=/etc/nginx/sites-available/${APP_NAME}.conf
-            printf '%s\n' \
-              'server {' \
-              '  listen 80;' \
-              '  server_name _;' \
-              '  proxy_read_timeout 300;' \
-              '  proxy_connect_timeout 300;' \
-              '  proxy_send_timeout 300;' \
-              '' \
-              '  location / {' \
-              '    proxy_pass http://127.0.0.1:'"$RUNTIME_PORT"';' \
-              '    proxy_http_version 1.1;' \
-              '    proxy_set_header Upgrade $http_upgrade;' \
-              "    proxy_set_header Connection 'upgrade';" \
-              '    proxy_set_header Host $host;' \
-              '    proxy_cache_bypass $http_upgrade;' \
-              '  }' \
-              '' \
-              '  location /healthz {' \
-              '    proxy_pass http://127.0.0.1:'"$RUNTIME_PORT"'/healthz;' \
-              '  }' \
-              '}' | sudo tee "$NGINX_CONF" > /dev/null
-
-            # Enable site
-            if [ -f /etc/nginx/sites-enabled/default ]; then sudo rm -f /etc/nginx/sites-enabled/default; fi
-            sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/${APP_NAME}.conf
-            sudo nginx -t
-            sudo systemctl restart nginx
-
-            echo "🚀 Deploying with PM2 (PORT=$RUNTIME_PORT)..."
-            export PORT=$RUNTIME_PORT
-            if pm2 describe "$APP_NAME" > /dev/null 2>&1; then
-              echo "♻️ Reloading existing PM2 process..."
-              pm2 reload "$APP_NAME" --update-env
+            if pm2 describe hospital-app >/dev/null 2>&1; then
+              pm2 reload hospital-app
             else
-              echo "🔥 Starting new PM2 process..."
-              pm2 start dist/main.js --name "$APP_NAME" --time --env production
-              # Enable auto-start on reboot
-              sudo pm2 startup systemd -u ubuntu --hp /home/ubuntu || true
+              pm2 start index.js --name hospital-app
+              sudo pm2 startup systemd -u ubuntu --hp /home/ubuntu
               pm2 save
             fi
 
-            echo "🧪 Listing PM2 processes & checking listening port..."
-            pm2 ls
-            sudo ss -tlnp | grep ":$RUNTIME_PORT" || echo "⚠️ Process not yet bound to $RUNTIME_PORT (may be starting)."
+            echo "🧽 Cleaning PM2 list..."
+            pm2 save
 
-            echo "✅ Deployment completed successfully."
+            echo "🎉 Deployment Successful!"
