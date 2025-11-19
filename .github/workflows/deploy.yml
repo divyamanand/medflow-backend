@@ -53,9 +53,7 @@ jobs:
 
           echo "🔹 Writing .env"
           if [ -n "$ENV_FILE_CONTENT" ]; then
-            cat > .env <<EENV
-          $ENV_FILE_CONTENT
-          EENV
+            printf '%s\n' "$ENV_FILE_CONTENT" > .env
           fi
           grep -q '^PORT=' .env 2>/dev/null || echo 'PORT=8081' >> .env
           grep -q '^NODE_ENV=' .env 2>/dev/null || echo 'NODE_ENV=production' >> .env
