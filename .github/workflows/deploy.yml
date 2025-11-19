@@ -9,21 +9,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js (for local build/test)
+      # 2️⃣ Setup Node.js locally (for build)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
-      # 3️⃣ Install dependencies locally (optional)
-      - name: Install dependencies locally
+      # 3️⃣ Install dependencies (for build)
+      - name: Install dependencies
         run: npm install
 
-      # 4️⃣ Copy project to EC2
+      # 4️⃣ Build project locally
+      - name: Build Project
+        run: npm run build
+
+      # 5️⃣ Upload project to EC2
       - name: Upload project to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -36,7 +40,7 @@ jobs:
           timeout: 90s
           overwrite: true
 
-      # 5️⃣ Deploy on EC2 via SSH
+      # 6️⃣ EC2 remote deployment
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -51,36 +55,35 @@ jobs:
 
             cd /home/ubuntu/hospital-app
 
-            echo "🔧 Installing Node.js if missing..."
+            echo "🔧 Ensuring Node.js installed..."
             if ! command -v node >/dev/null 2>&1; then
-              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+              curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
               sudo apt-get install -y nodejs
             fi
 
-            echo "🔧 Installing PM2 if missing..."
+            echo "🔧 Ensuring PM2 installed..."
             if ! command -v pm2 >/dev/null 2>&1; then
               sudo npm install -g pm2
             fi
 
-            echo "📝 Writing .env from GitHub Secrets..."
+            echo "📝 Writing .env file..."
             cat <<EOF > .env
-            ${{ vars.ENV_FILE_CONTENT}}
+            ${{ vars.ENV_FILE_CONTENT }}
             EOF
 
-            echo "📦 Installing production node modules..."
-            npm ci --only=production
+            echo "📦 Running npm install on EC2..."
+            npm install
 
-            echo "🚀 Starting or Reloading Node.js App with PM2..."
+            echo "🏗 Running npm run build on EC2..."
+            npm run build
 
-            if pm2 describe hospital-app >/dev/null 2>&1; then
-              pm2 reload hospital-app
+            echo "🚀 Starting PM2 app: medflow"
+            if pm2 describe medflow >/dev/null 2>&1; then
+              pm2 restart medflow --update-env
             else
-              pm2 start app.js --name hospital-app
+              pm2 start dist/main.js --name medflow
               sudo pm2 startup systemd -u ubuntu --hp /home/ubuntu
               pm2 save
             fi
-
-            echo "🧽 Cleaning PM2 list..."
-            pm2 save
 
             echo "🎉 Deployment Successful!"
