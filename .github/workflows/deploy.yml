@@ -2,77 +2,118 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: 
+    branches:
       - main
 
 jobs:
   deploy:
-    name: Deploy Node.js App to EC2
+    name: Deploy NestJS App to EC2
     runs-on: ubuntu-latest
+    env:
+      APP_DIR: /home/ubuntu/hospital-app
+      APP_NAME: hospital
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Add SSH Key
+      - name: Setup Node.js (for build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (local)
+        run: npm ci
+
+      - name: Build project (local)
+        run: npm run build
+
+      - name: Add SSH key
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
           chmod 600 key.pem
 
-      - name: Install Dependencies (Local)
-        run: npm install
-
-      - name: Build Project (Local)
-        run: npm run build
-
-      - name: Upload Project to EC2
+      - name: Upload project to EC2 (rsync)
         run: |
           rsync -avz -e "ssh -i key.pem -o StrictHostKeyChecking=no" \
-          --exclude node_modules \
-          --exclude .git \
-          ./ ubuntu@${{ secrets.REMOTE_HOST }}:/home/ubuntu/hospital-app/
+            --exclude node_modules \
+            --exclude .git \
+            ./ ubuntu@${{ secrets.REMOTE_HOST }}:${{ env.APP_DIR }}/
 
-      - name: Deploy on EC2
+      - name: Deploy on EC2 (install deps, pm2, nginx config)
+        env:
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT || vars.ENV_FILE_CONTENT }}
         run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.REMOTE_HOST }} << 'EOF'
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.REMOTE_HOST }} << EOF
+          set -euo pipefail
+          APP_DIR="${{ env.APP_DIR }}"; APP_NAME="${{ env.APP_NAME }}"
+          cd "$APP_DIR" || exit 1
 
-          cd ~/hospital-app
+          echo "🔹 Writing .env"
+          if [ -n "$ENV_FILE_CONTENT" ]; then
+            cat > .env <<EENV
+          $ENV_FILE_CONTENT
+          EENV
+          fi
+          grep -q '^PORT=' .env 2>/dev/null || echo 'PORT=8081' >> .env
+          grep -q '^NODE_ENV=' .env 2>/dev/null || echo 'NODE_ENV=production' >> .env
 
-          echo "🔹 Writing environment variables..."
-          cat <<EOT > .env
-          ${{ vars.ENV_FILE_CONTENT }}
-          EOT
+          echo "🔹 Ensure Node.js 20 present"
+          if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -c2-3)" != "20" ]; then
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+          fi
 
-          echo "🔹 Installing dependencies..."
-          npm install --omit=dev
+          echo "🔹 Install build tools (native modules)"
+          sudo apt-get update -y
+          sudo apt-get install -y build-essential
 
-          echo "🔹 Restarting PM2..."
-          pm2 delete hospital 2>/dev/null || true
-          pm2 start dist/main.js --name hospital
+          echo "🔹 Install production dependencies"
+          npm ci --omit=dev
 
-          echo "🔹 Setting PM2 startup..."
+          echo "🔹 Install pm2 if missing"
+          if ! command -v pm2 >/dev/null 2>&1; then
+            sudo npm install -g pm2
+          fi
+
+          echo "🔹 Restart application with PM2"
+          pm2 delete "$APP_NAME" 2>/dev/null || true
+          pm2 start dist/main.js --name "$APP_NAME" --time --update-env
           pm2 save
-          pm2 startup systemd -u \$USER --hp \$HOME
+          sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u ubuntu --hp /home/ubuntu >/dev/null 2>&1 || true
 
-          echo "🔹 Setting up NGINX reverse proxy..."
-          sudo bash -c 'cat << "EOF2" > /etc/nginx/sites-available/hospital
+          echo "🔹 Configure nginx reverse proxy (80 -> 8081)"
+          sudo rm -f /etc/nginx/sites-enabled/default || true
+          sudo bash -c 'cat > /etc/nginx/sites-available/hospital <<"NGINX"'
           server {
-              listen 80;
-
-              server_name _;
-              
-              location / {
-                  proxy_pass http://127.0.0.1:8081;
-                  proxy_http_version 1.1;
-                  proxy_set_header Upgrade \$http_upgrade;
-                  proxy_set_header Connection "upgrade";
-                  proxy_set_header Host \$host;
-              }
+            listen 80 default_server;
+            listen [::]:80 default_server;
+            server_name _;
+            client_max_body_size 20m;
+            gzip on; gzip_types text/plain application/json application/javascript text/css;
+            location / {
+              proxy_pass http://127.0.0.1:8081;
+              proxy_http_version 1.1;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection "upgrade";
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_set_header X-Forwarded-Host $host;
+              proxy_connect_timeout 60s;
+              proxy_read_timeout 120s;
+            }
           }
-          EOF2'
-
+            NGINX
           sudo ln -sf /etc/nginx/sites-available/hospital /etc/nginx/sites-enabled/hospital
-          sudo nginx -t && sudo systemctl restart nginx
+          sudo nginx -t
+          sudo systemctl restart nginx
 
-          echo "Deployment completed on EC2 ✔"
+          echo "🔹 Health check"
+          curl -fsS http://127.0.0.1:8081/ || echo "(Root 404 OK if other routes exist)"
+          pm2 ls
+          echo "✅ Deployment complete"
           EOF
