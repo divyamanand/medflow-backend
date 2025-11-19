@@ -58,11 +58,23 @@ jobs:
           grep -q '^PORT=' .env 2>/dev/null || echo 'PORT=8081' >> .env
           grep -q '^NODE_ENV=' .env 2>/dev/null || echo 'NODE_ENV=production' >> .env
 
-          echo "🔹 Ensure Node.js 20 present"
-          if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -c2-3)" != "20" ]; then
-            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-            sudo apt-get install -y nodejs
+          echo "🔹 Ensure Node.js & npm present (target v20)"
+          if ! command -v node >/dev/null 2>&1; then
+            echo "   Node not found; installing NodeSource v20"
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - || {
+              echo "   NodeSource setup failed; falling back to apt default (may be older)";
+              sudo apt-get update -y; sudo apt-get install -y nodejs npm;
+            }
+            sudo apt-get install -y nodejs npm || true
+          elif [ "$(node -v | cut -c2-3)" != "20" ]; then
+            echo "   Node version $(node -v) != 20; attempting upgrade"
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs npm || echo "   Upgrade attempt failed; continuing with existing version"
           fi
+          if ! command -v npm >/dev/null 2>&1; then
+            echo "   npm missing; installing separately"
+            sudo apt-get install -y npm || true
+          fi
+          echo "   Installed Node: $(node -v || echo 'unavailable') | npm: $(npm -v || echo 'unavailable')"
 
           echo "🔹 Install build tools (native modules)"
           sudo apt-get update -y
