@@ -1,53 +1,78 @@
-name: Deploy to Elastic Beanstalk
+name: Deploy to EC2
 
 on:
   push:
-    branches:
+    branches: 
       - main
 
 jobs:
   deploy:
-    name: Deploy Node.js App to Elastic Beanstalk
+    name: Deploy Node.js App to EC2
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Source Code
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+      - name: Add SSH Key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
 
-      - name: Install Dependencies
+      - name: Install Dependencies (Local)
         run: npm install
-      
-      - name: Build NESTJS Project
+
+      - name: Build Project (Local)
         run: npm run build
 
-      - name: Create ZIP for Deployment
-        run: zip -r app.zip . -x "*.git*" "node_modules/*"
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-1
-
-      - name: Upload to S3
+      - name: Upload Project to EC2
         run: |
-          aws s3 cp app.zip s3://elasticbeanstalk-ap-south-1-491159884018/hospital/app-${{ github.sha }}.zip
+          rsync -avz -e "ssh -i key.pem -o StrictHostKeyChecking=no" \
+          --exclude node_modules \
+          --exclude .git \
+          ./ ubuntu@${{ secrets.REMOTE_HOST }}:/home/ubuntu/hospital-app/
 
-      - name: Create New EB Application Version
+      - name: Deploy on EC2
         run: |
-          aws elasticbeanstalk create-application-version \
-            --application-name "hospital" \
-            --version-label "build-${{ github.sha }}" \
-            --source-bundle S3Bucket="elasticbeanstalk-ap-south-1-491159884018",S3Key="hospital/app-${{ github.sha }}.zip"
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.REMOTE_HOST }} << 'EOF'
 
-      - name: Deploy to Elastic Beanstalk
-        run: |
-          aws elasticbeanstalk update-environment \
-            --environment-name "Hospital-env" \
-            --version-label "build-${{ github.sha }}"
+          cd ~/hospital-app
+
+          echo "🔹 Writing environment variables..."
+          cat <<EOT > .env
+          ${{ vars.ENV_FILE_CONTENT }}
+          EOT
+
+          echo "🔹 Installing dependencies..."
+          npm install --omit=dev
+
+          echo "🔹 Restarting PM2..."
+          pm2 delete hospital 2>/dev/null || true
+          pm2 start dist/main.js --name hospital
+
+          echo "🔹 Setting PM2 startup..."
+          pm2 save
+          pm2 startup systemd -u \$USER --hp \$HOME
+
+          echo "🔹 Setting up NGINX reverse proxy..."
+          sudo bash -c 'cat << "EOF2" > /etc/nginx/sites-available/hospital
+          server {
+              listen 80;
+
+              server_name _;
+              
+              location / {
+                  proxy_pass http://127.0.0.1:8081;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade \$http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_set_header Host \$host;
+              }
+          }
+          EOF2'
+
+          sudo ln -sf /etc/nginx/sites-available/hospital /etc/nginx/sites-enabled/hospital
+          sudo nginx -t && sudo systemctl restart nginx
+
+          echo "Deployment completed on EC2 ✔"
+          EOF
