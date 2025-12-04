@@ -72,17 +72,6 @@ export class PatientController {
     throw new ForbiddenException('Not allowed');
   }
 
-  @Get(':id/appointments')
-  @UseGuards(RolesGuard)
-  @Roles('admin','receptionist','doctor','patient')
-  async appointments(@Param('id') id: string, @Req() req: any) {
-    const role = req.user?.role;
-    if (role === 'admin' || role === 'receptionist') return this.svc.getAppointmentsForPatient(id);
-    if (role === 'patient' && req.user?.patientId === id) return this.svc.getAppointmentsForPatient(id);
-    if (role === 'doctor' && await this.svc.isDoctorLinkedToPatient(req.user?.staffId, id)) return this.svc.getAppointmentsForPatient(id);
-    throw new ForbiddenException('Not allowed');
-  }
-
   @Get(':id/prescriptions')
   @UseGuards(RolesGuard)
   @Roles('admin','receptionist','doctor','patient')

@@ -1,5 +1,4 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, OneToOne, JoinColumn, DeleteDateColumn } from 'typeorm';
-import { Specialty } from './specialty.entity';
 import { StaffSpecialty } from './staff-specialty.entity';
 import { Timings } from './timings.entity';
 import { Leave } from './leave.entity';

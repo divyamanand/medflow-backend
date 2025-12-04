@@ -149,6 +149,25 @@ export class StaffController {
     throw new ForbiddenException('Not allowed');
   }
 
+  // Specialties management
+  @Get(':id/specialties')
+  @Roles('admin','receptionist')
+  listSpecialties(@Param('id') id: string) {
+    return this.svc.getSpecialties(id);
+  }
+
+  @Post(':id/specialties')
+  @Roles('admin','receptionist')
+  addSpecialty(@Param('id') id: string, @Body() body: { specialtyId: string; primary?: boolean }) {
+    return this.svc.addSpecialty(id, body.specialtyId, body.primary || false);
+  }
+
+  @Delete(':id/specialties/:specialtyId')
+  @Roles('admin','receptionist')
+  removeSpecialty(@Param('id') id: string, @Param('specialtyId') specialtyId: string) {
+    return this.svc.removeSpecialty(id, specialtyId);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string, @Req() req: any) {
     const role = req.user?.role; const userStaffId = req.user?.staffId;

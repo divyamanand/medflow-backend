@@ -67,6 +67,129 @@ export class AppointmentController {
       };
     }));
   }
+
+  @Get('patient/:patientId')
+  @UseGuards(RolesGuard)
+  @Roles('admin','receptionist','doctor','patient')
+  listByPatient(@Param('patientId') patientId: string, @Query() q: any, @Req() req: any) {
+    const role = req.user?.role;
+    const sub = req.user?.id;
+    // Patients can only view their own appointments
+    if (role === 'patient' && patientId !== sub) {
+      throw new ForbiddenException('Patients can only view their own appointments');
+    }
+    const filter: any = { patientId };
+    if (q?.status) filter.status = q.status;
+    if (q?.doctorId) filter.doctorId = q.doctorId;
+    if (q?.from) filter.from = q.from;
+    if (q?.to) filter.to = q.to;
+    if (q?.timeframe) {
+      const tf = q.timeframe;
+      const now = new Date();
+      let start: Date | null = null; let end: Date | null = null;
+      if (tf === 'day') {
+        start = new Date(now); start.setHours(0,0,0,0);
+        end = new Date(start); end.setDate(start.getDate()+1);
+      } else if (tf === 'month') {
+        start = new Date(now.getFullYear(), now.getMonth(), 1, 0,0,0,0);
+        end = new Date(now.getFullYear(), now.getMonth()+1, 1, 0,0,0,0);
+      } else if (tf === 'year') {
+        start = new Date(now.getFullYear(), 0, 1, 0,0,0,0);
+        end = new Date(now.getFullYear()+1, 0, 1, 0,0,0,0);
+      }
+      if (start && end) {
+        filter.from = start.toISOString();
+        filter.to = end.toISOString();
+      }
+    }
+    if (q?.rangeStart && q?.rangeEnd) {
+      filter.from = new Date(q.rangeStart).toISOString();
+      filter.to = new Date(q.rangeEnd).toISOString();
+    }
+    return this.svc.findAll(filter).then(rows => rows.map(r => {
+      const patientId = (r.patient as any)?.id || null;
+      const doctorId = (r.doctor as any)?.id || null;
+      const pUser = (r.patient as any)?.user || null;
+      const dUser = (r.doctor as any)?.user || null;
+      const patientName = pUser ? [pUser.firstName||'', pUser.lastName||''].join(' ').trim() || null : null;
+      const doctorName = dUser ? [dUser.firstName||'', dUser.lastName||''].join(' ').trim() || null : null;
+      return {
+        id: r.id,
+        patientId,
+        doctorId,
+        patientName,
+        doctorName,
+        startAt: r.startAt,
+        endAt: r.endAt,
+        status: r.status,
+        issues: r.issues,
+        createdAt: (r as any).createdAt,
+        updatedAt: (r as any).updatedAt,
+      };
+    }));
+  }
+
+  @Get('doctor/:doctorId')
+  @UseGuards(RolesGuard)
+  @Roles('admin','receptionist','doctor')
+  listByDoctor(@Param('doctorId') doctorId: string, @Query() q: any, @Req() req: any) {
+    const role = req.user?.role;
+    const sub = req.user?.id;
+    // Doctors can only view their own appointments unless admin/receptionist
+    if (role === 'doctor' && doctorId !== sub) {
+      throw new ForbiddenException('Doctors can only view their own appointments');
+    }
+    const filter: any = { doctorId };
+    if (q?.status) filter.status = q.status;
+    if (q?.patientId) filter.patientId = q.patientId;
+    if (q?.from) filter.from = q.from;
+    if (q?.to) filter.to = q.to;
+    if (q?.timeframe) {
+      const tf = q.timeframe;
+      const now = new Date();
+      let start: Date | null = null; let end: Date | null = null;
+      if (tf === 'day') {
+        start = new Date(now); start.setHours(0,0,0,0);
+        end = new Date(start); end.setDate(start.getDate()+1);
+      } else if (tf === 'month') {
+        start = new Date(now.getFullYear(), now.getMonth(), 1, 0,0,0,0);
+        end = new Date(now.getFullYear(), now.getMonth()+1, 1, 0,0,0,0);
+      } else if (tf === 'year') {
+        start = new Date(now.getFullYear(), 0, 1, 0,0,0,0);
+        end = new Date(now.getFullYear()+1, 0, 1, 0,0,0,0);
+      }
+      if (start && end) {
+        filter.from = start.toISOString();
+        filter.to = end.toISOString();
+      }
+    }
+    if (q?.rangeStart && q?.rangeEnd) {
+      filter.from = new Date(q.rangeStart).toISOString();
+      filter.to = new Date(q.rangeEnd).toISOString();
+    }
+    return this.svc.findAll(filter).then(rows => rows.map(r => {
+      const patientId = (r.patient as any)?.id || null;
+      const doctorId = (r.doctor as any)?.id || null;
+      const pUser = (r.patient as any)?.user || null;
+      const dUser = (r.doctor as any)?.user || null;
+      const patientName = pUser ? [pUser.firstName||'', pUser.lastName||''].join(' ').trim() || null : null;
+      const doctorName = dUser ? [dUser.firstName||'', dUser.lastName||''].join(' ').trim() || null : null;
+      return {
+        id: r.id,
+        patientId,
+        doctorId,
+        patientName,
+        doctorName,
+        startAt: r.startAt,
+        endAt: r.endAt,
+        status: r.status,
+        issues: r.issues,
+        createdAt: (r as any).createdAt,
+        updatedAt: (r as any).updatedAt,
+      };
+    }));
+  }
+
   @Get(':id')
   async get(@Param('id') id: string, @Req() req: any) {
     const r = await this.svc.findOne(id);
@@ -125,7 +248,9 @@ export class AppointmentController {
   @Get('doctor/:doctorId/next3Slots')
   @UseGuards(RolesGuard)
   @Roles('admin','receptionist','doctor')
-  nextSlots(@Param('doctorId') doctorId: string, @Req() req: any) { return this.svc.getDoctorNext3Slots(doctorId); }
+  nextSlots(@Param('doctorId') doctorId: string, @Query('date') date: string, @Req() req: any) { 
+    return this.svc.getDoctorNext3Slots(doctorId, date); 
+  }
 
   @Put(':id')
   @UseGuards(RolesGuard)

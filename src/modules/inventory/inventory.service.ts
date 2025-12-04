@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InventoryItem } from '../../entities/inventory-item.entity';
@@ -17,98 +17,291 @@ export class InventoryService {
     @InjectRepository(PrescriptionItem) private presItemRepo: Repository<PrescriptionItem>,
   ) {}
 
-  async listItems(filter?: any) {
+  // ============ ITEM CRUD ============
+
+  async listItemsWithAggregates(filter?: any) {
     // Aggregate total quantity and nearest expiry from stocks
     const qb = this.itemRepo.createQueryBuilder('i')
       .leftJoin(InventoryStock, 's', 's."inventoryItemId" = i.id')
-      .select('i.id', 'id')
-      .addSelect('i.name', 'name')
-      .addSelect('i.type', 'type')
-      .addSelect('i.unit', 'unit')
+      .select('i.name', 'name')
       .addSelect('COALESCE(SUM(s.quantity), 0)', 'quantity')
       .addSelect('MIN(s.expiry)', 'expiry')
-      .groupBy('i.id');
+      .groupBy('i.id')
+      .addGroupBy('i.name');
+
     if (filter?.type) qb.andWhere('i.type = :type', { type: filter.type });
     if (filter?.lowStock) qb.having('COALESCE(SUM(s.quantity),0) < :ls', { ls: filter.lowStock });
     if (filter?.expiryBefore) qb.having('MIN(s.expiry) IS NOT NULL AND MIN(s.expiry) < :exp', { exp: filter.expiryBefore });
+
     const rows = await qb.getRawMany();
-    // Map to InventoryItem-like objects for controller mapper
     return rows.map((r: any) => ({
-      id: r.id,
       name: r.name,
-      type: r.type,
-      unit: r.unit,
       quantity: parseInt(r.quantity, 10) || 0,
       expiry: r.expiry || null,
     }));
   }
-  listByType(type: InventoryItem['type']) { return this.itemRepo.find({ where: { type } as any }); }
-  createItem(data: Partial<InventoryItem>) { return this.itemRepo.save(this.itemRepo.create(data)); }
-  async updateItem(id: string, data: Partial<InventoryItem>) { await this.itemRepo.update({ id }, data); return this.itemRepo.findOne({ where: { id } }); }
-  async deleteItem(id: string) { await this.itemRepo.delete({ id }); return { id, removed: true } as any; }
 
-  getItemByName(name: string) {
-    return this.itemRepo.createQueryBuilder('i')
-      .where('LOWER(i.name) = LOWER(:name)', { name })
-      .getOne();
+  // Stock-level listing with filters, returns per-stock rows
+  async listStocks(filter?: any) {
+    const qb = this.stockRepo.createQueryBuilder('s')
+      .leftJoinAndSelect('s.inventoryItem', 'i')
+      .select([
+        's.id as stockId',
+        'i.name as name',
+        's.quantity as quantity',
+        's.expiry as expiry',
+        's.notes as notes',
+        's.createdAt as created',
+        's.updatedAt as updated',
+      ])
+      .where('1=1');
+
+    if (filter?.itemType) qb.andWhere('i.type = :t', { t: filter.itemType });
+    if (filter?.lowStock) qb.andWhere('s.quantity < :ls', { ls: filter.lowStock });
+    if (filter?.expiryBefore) qb.andWhere('s.expiry IS NOT NULL AND s.expiry < :exp', { exp: filter.expiryBefore });
+    if (filter?.expiry) qb.andWhere('s.expiry = :expOn', { expOn: filter.expiry });
+
+    qb.orderBy('s.expiry', 'ASC');
+    const rows = await qb.getRawMany();
+    return rows.map(r => ({
+      stockId: r.stockid,
+      name: r.name,
+      quantity: typeof r.quantity === 'string' ? parseInt(r.quantity, 10) : r.quantity,
+      expiry: r.expiry || null,
+      notes: r.notes || null,
+      created: r.created,
+      updated: r.updated,
+    }));
   }
 
-  async addStock(id: string, quantity: number, referenceId?: string, unit?: string | null, expiry?: string | null) {
+  async createItem(data: { name: string; type: InventoryItem['type']; manufacturer?: string; description?: string }) {
+    if (!data.name || !data.type) {
+      throw new Error('Name and type are required');
+    }
+    return this.itemRepo.save(this.itemRepo.create({
+      name: data.name,
+      type: data.type,
+      manufacturer: data.manufacturer || null,
+      description: data.description || null,
+    }));
+  }
+
+  async getItem(id: string) {
     const item = await this.itemRepo.findOne({ where: { id } });
-    if (!item || quantity <= 0) return null;
-    const stock = await this.stockRepo.save(this.stockRepo.create({ inventoryItem: item, quantity, unit: unit ?? item.unit ?? null, expiry: expiry ?? null }));
-    await this.txnRepo.save(this.txnRepo.create({ inventoryItem: item, type: 'in', quantity, reason: referenceId || null, refPrescriptionItemId: null }));
-    // maintain cached total quantity on item for compatibility
-    await this.itemRepo.update({ id }, { quantity: (item.quantity || 0) + quantity });
+    if (!item) {
+      throw new NotFoundException(`Item with id '${id}' not found`);
+    }
+    return item;
+  }
+
+  async updateItem(id: string, data: Partial<InventoryItem>) {
+    await this.getItem(id); // Validate exists
+    await this.itemRepo.update({ id }, data);
+    return this.getItem(id);
+  }
+
+  async deleteItem(id: string) {
+    await this.getItem(id); // Validate exists
+    await this.itemRepo.delete({ id });
+    return { id, removed: true };
+  }
+
+  async searchItemsByName(keyword: string) {
+    const items = await this.itemRepo.createQueryBuilder('i')
+      .where('i.name ILIKE :kw', { kw: `%${keyword}%` })
+      .orderBy('i.name', 'ASC')
+      .getMany();
+    return items;
+  }
+
+  // ============ STOCK CRUD ============
+
+  async listStock(itemId: string) {
+    await this.getItem(itemId); // Validate item exists
+    return this.stockRepo.find({ 
+      where: { inventoryItem: { id: itemId } as any },
+      order: { expiry: 'ASC', createdAt: 'ASC' }
+    });
+  }
+
+  async addStock(
+    itemId: string, 
+    quantity: number, 
+    expiry?: string, 
+    notes?: string,
+  ) {
+    const item = await this.getItem(itemId); // Validate item exists
+    
+    if (!quantity || quantity <= 0) {
+      throw new Error('Quantity must be positive');
+    }
+
+    const stock = this.stockRepo.create({
+      inventoryItem: item,
+      quantity,
+      expiry: expiry || null,
+      notes: notes || null,
+    });
+
+    await this.stockRepo.save(stock);
+
+    // Log transaction
+    await this.txnRepo.save(this.txnRepo.create({
+      inventoryItem: item,
+      type: 'in',
+      quantity,
+      reason: 'Stock added',
+    }));
+
     return stock;
   }
 
-  async dispenseItem(id: string, quantity: number, referenceId?: string) {
-    const item = await this.itemRepo.findOne({ where: { id } });
-    if (!item || quantity <= 0) return null;
-    const qty = Math.abs(quantity);
-    await this.txnRepo.save(this.txnRepo.create({ inventoryItem: item, type: 'out', quantity: qty, reason: referenceId || null, refPrescriptionItemId: null }));
-    await this.itemRepo.update({ id }, { quantity: (item.quantity || 0) - qty });
-    return this.itemRepo.findOne({ where: { id } });
+  async getStock(stockId: string) {
+    const stock = await this.stockRepo.findOne({ 
+      where: { id: stockId },
+      relations: ['inventoryItem']
+    });
+    if (!stock) {
+      throw new NotFoundException(`Stock with id '${stockId}' not found`);
+    }
+    return stock;
   }
 
-  async removeExpired() {
-    const today = new Date();
-    const iso = today.toISOString().slice(0,10);
-    const expired = await this.itemRepo.createQueryBuilder('i')
-      .where('i.expiry IS NOT NULL AND i.expiry < :today', { today: iso })
-      .getMany();
-    const ids = expired.map(e => e.id);
-    if (ids.length === 0) return { removed: 0 } as any;
-    await this.itemRepo.createQueryBuilder().delete().from(InventoryItem).where('id IN (:...ids)', { ids }).execute();
-    return { removed: ids.length, ids } as any;
+  async updateStock(stockId: string, data: { quantity?: number; expiry?: string; notes?: string }) {
+    await this.getStock(stockId); // Validate exists
+    await this.stockRepo.update({ id: stockId }, data);
+    return this.getStock(stockId);
   }
 
-  async adjustItem(id: string, body: { quantity: number; reason?: string; refPrescriptionItemId?: string }) {
-    const item = await this.itemRepo.findOne({ where: { id } });
-    if (!item) return null;
+  async deleteStock(stockId: string) {
+    const stock = await this.getStock(stockId);
+    
+    // Log transaction for removed stock
+    await this.txnRepo.save(this.txnRepo.create({
+      inventoryItem: stock.inventoryItem,
+      type: 'out',
+      quantity: stock.quantity,
+      reason: 'Stock deleted',
+    }));
+
+    await this.stockRepo.delete({ id: stockId });
+    return { id: stockId, removed: true };
+  }
+
+  // ============ UTILITY METHODS ============
+
+  async dispenseItem(itemId: string, quantity: number, referenceId?: string) {
+    const item = await this.getItem(itemId);
+    
+    if (!quantity || quantity <= 0) {
+      throw new Error('Quantity must be positive');
+    }
+
+    // Get stocks ordered by expiry (FIFO)
+    const stocks = await this.stockRepo.find({
+      where: { inventoryItem: { id: itemId } as any },
+      order: { expiry: 'ASC', createdAt: 'ASC' }
+    });
+
+    let remaining = quantity;
+    for (const stock of stocks) {
+      if (remaining <= 0) break;
+      
+      const toTake = Math.min(stock.quantity, remaining);
+      stock.quantity -= toTake;
+      remaining -= toTake;
+
+      if (stock.quantity === 0) {
+        await this.stockRepo.delete({ id: stock.id });
+      } else {
+        await this.stockRepo.save(stock);
+      }
+    }
+
+    if (remaining > 0) {
+      throw new Error(`Insufficient stock. Short by ${remaining} units.`);
+    }
+
+    // Log transaction
+    await this.txnRepo.save(this.txnRepo.create({
+      inventoryItem: item,
+      type: 'out',
+      quantity,
+      reason: referenceId || 'Dispensed',
+    }));
+
+    return { itemId, dispensed: quantity, reference: referenceId };
+  }
+
+  async adjustItem(itemId: string, body: { quantity: number; reason?: string; refPrescriptionItemId?: string }) {
+    const item = await this.getItem(itemId);
+
+    // Log transaction
     await this.txnRepo.save(this.txnRepo.create({
       inventoryItem: item,
       type: 'adjust',
       quantity: body.quantity,
-      reason: body.reason || null,
-      refPrescriptionItemId: body.refPrescriptionItemId || null,
+      reason: body.reason || 'Manual adjustment',
     }));
-    await this.itemRepo.update({ id }, { quantity: (item.quantity || 0) + body.quantity });
-    return this.itemRepo.findOne({ where: { id } });
+
+    // If positive adjustment, create a new stock entry
+    if (body.quantity > 0) {
+      await this.stockRepo.save(this.stockRepo.create({
+        inventoryItem: item,
+        quantity: body.quantity,
+        expiry: null,
+        notes: null,
+      }));
+    } else if (body.quantity < 0) {
+      // If negative, try to dispense
+      await this.dispenseItem(itemId, Math.abs(body.quantity), body.reason);
+    }
+
+    return { itemId, adjusted: body.quantity };
   }
+
+  async removeExpiredStocks() {
+    const today = new Date().toISOString().slice(0, 10);
+    const expired = await this.stockRepo
+      .createQueryBuilder('s')
+      .where('s.expiry IS NOT NULL AND s.expiry < :today', { today })
+      .getMany();
+
+    const ids = expired.map(e => e.id);
+    if (ids.length === 0) {
+      return { removed: 0, ids: [] };
+    }
+
+    // Log transactions for expired stock removal
+    for (const stock of expired) {
+      await this.txnRepo.save(this.txnRepo.create({
+        inventoryItem: stock.inventoryItem,
+        type: 'out',
+        quantity: stock.quantity,
+        reason: `Expired (${stock.expiry})`,
+      }));
+    }
+
+    await this.stockRepo.delete(ids);
+    return { removed: ids.length, ids };
+  }
+
   async listTransactions(filter?: any) {
-    const qb = this.txnRepo.createQueryBuilder('t').leftJoinAndSelect('t.inventoryItem','item');
-    qb.where('1=1');
+    const qb = this.txnRepo.createQueryBuilder('t')
+      .leftJoinAndSelect('t.inventoryItem', 'item')
+      .where('1=1');
+
     if (filter?.itemId) qb.andWhere('t.inventoryItemId = :iid', { iid: filter.itemId });
     if (filter?.type) qb.andWhere('t.type = :tt', { tt: filter.type });
     if (filter?.from) qb.andWhere('t.createdAt >= :from', { from: filter.from });
     if (filter?.to) qb.andWhere('t.createdAt <= :to', { to: filter.to });
-    qb.orderBy('t.createdAt','DESC');
+    
+    qb.orderBy('t.createdAt', 'DESC');
     return qb.getMany();
   }
-  // Basic placeholder; prescription fulfillment handled in prescription module
+
+  // Placeholder for prescription fulfillment
   async fulfillPrescription(prescriptionId: string) {
-    return { id: prescriptionId, status: 'not_implemented' } as any;
+    return { id: prescriptionId, status: 'not_implemented' };
   }
 }

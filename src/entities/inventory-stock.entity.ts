@@ -13,11 +13,11 @@ export class InventoryStock {
   @Column({ type: 'int', default: 0 })
   quantity!: number;
 
-  @Column({ type: 'varchar', nullable: true })
-  unit!: string | null;
-
   @Column({ type: 'date', nullable: true })
   expiry!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  notes!: string | null;
 
   @CreateDateColumn()
   createdAt!: Date;

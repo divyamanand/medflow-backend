@@ -19,9 +19,6 @@ export class InventoryTransaction {
   @Column({ type: 'varchar', nullable: true })
   reason!: string | null;
 
-  @Column({ type: 'varchar', nullable: true })
-  refPrescriptionItemId!: string | null;
-
   @CreateDateColumn()
   createdAt!: Date;
 }

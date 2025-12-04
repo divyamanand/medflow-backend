@@ -125,7 +125,7 @@ export class StaffService {
   private async loadSpecialtiesMap(staffIds: string[]) {
     if (!staffIds.length) return new Map<string, Array<{ id: string; name: string; primary: boolean }>>();
     const raw = await this.repo.query(
-      `SELECT ss."staffId" as staffId, sp.id as specId, sp.name as specName, ss.primary as primary
+      `SELECT ss."staffId" as staffId, sp.id as specId, sp.name as specName, ss."primary" as primary
        FROM staff_specialty ss
        JOIN specialty sp ON sp.id = ss."specialtyId"
        WHERE ss."staffId" = ANY($1::uuid[])`,
@@ -220,6 +220,7 @@ export class StaffService {
 
   // Timings CRUD
   createTiming(staffId: string, timing: Partial<Timings>) {
+    console.log(timing)
     return this.timingsRepo.save(this.timingsRepo.create({ ...timing, staff: { id: staffId } as any }));
   }
 
@@ -228,6 +229,7 @@ export class StaffService {
   }
 
   async updateTiming(staffId: string, timingId: string, data: Partial<Timings>) {
+    console.log(timingId, data, staffId)
     await this.timingsRepo.createQueryBuilder()
       .update(Timings)
       .set(data)
@@ -336,6 +338,75 @@ export class StaffService {
       const name = [s.user?.firstName || '', s.user?.lastName || ''].join(' ').trim() || null;
       return { staffId: s.id, name, role: s.user?.role || null, timings: timingMap[s.id] || [] };
     });
+  }
+
+  // Specialties management
+  async getSpecialties(staffId: string) {
+    const raw = await this.repo.query(
+      `SELECT ss.id, ss."staffId", ss."specialtyId", ss."primary", sp.code, sp.name, sp.description
+       FROM staff_specialty ss
+       JOIN specialty sp ON sp.id = ss."specialtyId"
+       WHERE ss."staffId" = $1
+       ORDER BY ss."primary" DESC, sp.name ASC`,
+      [staffId],
+    );
+    return raw.map((r: any) => ({
+      id: r.id,
+      staffId: r.staffId,
+      specialtyId: r.specialtyId,
+      primary: r.primary,
+      code: r.code,
+      name: r.name,
+      description: r.description,
+    }));
+  }
+
+  async addSpecialty(staffId: string, specialtyId: string, primary: boolean = false) {
+    // Validate specialty exists
+    console.log(staffId, specialtyId, primary)
+    const specialtyExists = await this.repo.query(
+      'SELECT 1 FROM specialty WHERE id = $1 LIMIT 1',
+      [specialtyId],
+    );
+    if (!specialtyExists.length) {
+      throw new Error(`Specialty with id ${specialtyId} does not exist`);
+    }
+
+    // Check if already assigned
+    const existing = await this.repo.query(
+      'SELECT 1 FROM staff_specialty WHERE "staffId" = $1 AND "specialtyId" = $2 LIMIT 1',
+      [staffId, specialtyId],
+    );
+    if (existing.length) {
+      throw new Error('Specialty already assigned to this staff member');
+    }
+
+    // If setting as primary, unset other primary specialties
+    if (primary) {
+      await this.repo.query(
+        'UPDATE staff_specialty SET "primary" = false WHERE "staffId" = $1',
+        [staffId],
+      );
+    }
+
+    // Insert the specialty assignment
+    const result = await this.repo.query(
+      'INSERT INTO staff_specialty ("staffId", "specialtyId", "primary") VALUES ($1, $2, $3) RETURNING id',
+      [staffId, specialtyId, primary],
+    );
+
+    return this.getSpecialties(staffId);
+  }
+
+  async removeSpecialty(staffId: string, specialtyId: string) {
+    const result = await this.repo.query(
+      'DELETE FROM staff_specialty WHERE "staffId" = $1 AND "specialtyId" = $2 RETURNING id',
+      [staffId, specialtyId],
+    );
+    if (!result.length) {
+      throw new Error('Specialty assignment not found');
+    }
+    return { id: specialtyId, removed: true };
   }
 
   async getLeavesTable(filter?: { role?: string; specialtyId?: string; status?: string; from?: string; to?: string }) {

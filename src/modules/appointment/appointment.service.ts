@@ -58,11 +58,12 @@ export class AppointmentService {
 
     // Fetch doctors and their specialties
     const rows = await this.repo.query(
-      `SELECT s.id as "doctorId", json_agg(json_build_object('id', sp.id, 'name', sp.name) ORDER BY ss.primary DESC) as specialties
+      `SELECT s.id as "doctorId", json_agg(json_build_object('id', sp.id, 'name', sp.name) ORDER BY ss."primary" DESC) as specialties
        FROM staff s
-       JOIN staff_specialty ss ON ss.staffId = s.id
-       JOIN specialty sp ON sp.id = ss.specialtyId
-       WHERE s.role = 'doctor'
+       JOIN staff_specialty ss ON ss."staffId" = s.id
+       JOIN specialty sp ON sp.id = ss."specialtyId"
+       LEFT JOIN "user" u ON u.id = s."userId"
+       WHERE u.role = 'doctor'
        GROUP BY s.id`,
       [],
     );
@@ -82,22 +83,33 @@ export class AppointmentService {
     return results.sort((a, b) => b.score - a.score).map((x) => ({ doctorId: x.doctorId, score: x.score, specialties: x.specialties }));
   }
 
-  async getDoctorNext3Slots(doctorId: string) {
+  async getDoctorNext3Slots(doctorId: string, dateFilter?: string) {
     const targetCount = 3;
     const results: Array<{ startDatetime: Date; endDatetime: Date; slotDurationMinutes: number }>= [];
     const now = new Date();
+
+    // If date is provided, use that specific date; otherwise search forward
+    let targetDate: Date | null = null;
+    let searchSingleDay = false;
+    if (dateFilter) {
+      targetDate = new Date(dateFilter);
+      targetDate.setHours(0, 0, 0, 0);
+      searchSingleDay = true;
+    }
 
     // Load timings for this doctor
     const timings = await this.timingsRepo.find({ where: { staff: { id: doctorId } as any, isAvailable: true } });
     if (!timings.length) return results;
 
     // Helper: convert weekday 0-6 to next date occurrences up to 30 days
-    const maxDays = 30;
+    const maxDays = searchSingleDay ? 1 : 30;
     let dayCursor = 0;
     while (results.length < targetCount && dayCursor < maxDays) {
-      const date = new Date(now);
+      const date = targetDate ? new Date(targetDate) : new Date(now);
       date.setHours(0, 0, 0, 0);
-      date.setDate(now.getDate() + dayCursor);
+      if (!targetDate) {
+        date.setDate(now.getDate() + dayCursor);
+      }
       const weekday = date.getDay(); // 0=Sunday
 
       const dayTimings = timings.filter((t) => t.weekday === weekday);
@@ -105,8 +117,12 @@ export class AppointmentService {
         const slotDuration = 15;
         const dayStart = this.combineDateTime(date, t.startTime);
         const dayEnd = this.combineDateTime(date, t.endTime);
-        // If today, move start forward to now
-        let slotStart = new Date(Math.max(dayStart.getTime(), now.getTime()));
+        // If today (or target date is today), move start forward to now
+        let slotStart = new Date(Math.max(dayStart.getTime(), searchSingleDay ? dayStart.getTime() : now.getTime()));
+        // If searching specific date and it's in the past relative to now, still start from dayStart
+        if (searchSingleDay && date.toDateString() === now.toDateString()) {
+          slotStart = new Date(Math.max(dayStart.getTime(), now.getTime()));
+        }
         // Align to next slot boundary
         slotStart = this.alignToSlot(slotStart, dayStart, slotDuration);
 

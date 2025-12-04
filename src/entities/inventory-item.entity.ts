@@ -11,11 +11,11 @@ export class InventoryItem {
   @Column({ type: 'varchar' })
   type!: 'medicine' | 'equipment' | 'blood' | 'supply';
 
-  @Column({ type: 'int', default: 0 })
-  quantity!: number;
-
   @Column({ type: 'varchar', nullable: true })
-  unit!: string | null;
+  manufacturer!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  description!: string | null;
 
   @CreateDateColumn()
   createdAt!: Date;
