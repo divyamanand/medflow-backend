@@ -27,7 +27,23 @@ jobs:
       - name: Build Project
         run: npm run build
 
-      # 5️⃣ Upload project to EC2
+      # 5️⃣ Clean up remote deployment directory (NEW CLEANUP STEP)
+      - name: Clean up remote deployment directory
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            echo "🧹 Ensuring target directory exists and cleaning contents..."
+            # Create the directory if it doesn't exist
+            mkdir -p /home/ubuntu/hospital-app
+            # Delete all contents inside the directory
+            rm -rf /home/ubuntu/hospital-app/*
+            echo "✅ Cleanup complete."
+
+      # 6️⃣ Upload project to EC2 (Now uploads to clean directory)
       - name: Upload project to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -38,9 +54,10 @@ jobs:
           target: "/home/ubuntu/hospital-app"
           port: 22
           timeout: 90s
-          overwrite: true
+          # Since we cleaned the directory in the previous step, overwrite is optional but kept for safety.
+          overwrite: true 
 
-      # 6️⃣ EC2 remote deployment
+      # 7️⃣ EC2 remote deployment (Final deployment and restart)
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -67,14 +84,15 @@ jobs:
             fi
 
             echo "📝 Writing .env file..."
+            # Using a heredoc to safely write the multiline secret variable to .env
             cat <<EOF > .env
             ${{ vars.ENV_FILE_CONTENT }}
             EOF
 
-            echo "📦 Running npm install on EC2..."
+            echo "📦 Running npm install on EC2 (re-installing dependencies for server environment)..."
             npm install
 
-            echo "🏗 Running npm run build on EC2..."
+            echo "🏗 Running npm run build on EC2 (re-building)..."
             npm run build
 
             echo "🚀 Starting PM2 app: medflow"
@@ -82,6 +100,7 @@ jobs:
               pm2 restart medflow --update-env
             else
               pm2 start dist/main.js --name medflow
+              # Configure PM2 to start on boot
               sudo pm2 startup systemd -u ubuntu --hp /home/ubuntu
               pm2 save
             fi
