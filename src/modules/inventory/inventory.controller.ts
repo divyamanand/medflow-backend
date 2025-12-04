@@ -53,7 +53,7 @@ export class InventoryController {
 
   @Post('inventory')
   @Roles('admin','pharmacist','inventory')
-  createItem(@Body() body: { name: string; type: string; manufacturer?: string; description?: string }) { 
+  createItem(@Body() body: { name: string; type: "medicine" | "equipment" | "blood" | "supply"; manufacturer?: string; description?: string }) { 
     return this.svc.createItem(body); 
   }
 

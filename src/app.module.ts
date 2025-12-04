@@ -11,7 +11,6 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { RoomModule } from './modules/room/room.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SpecialtyModule } from './modules/specialty/specialty.module';
-import { RequirementModule } from './modules/requirement/requirement.module';
 import { UserModule } from './modules/user/user.module';
 import { StatsModule } from './modules/stats/stats.module';
 import { AuthMiddleware } from './modules/auth/auth.middleware';
@@ -54,7 +53,6 @@ import { BootstrapModule } from './modules/bootstrap/bootstrap.module';
     RoomModule,
     AuthModule,
     SpecialtyModule,
-    RequirementModule,
     ActivityModule,
     LeaveModule,
     StatsModule,
