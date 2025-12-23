@@ -9,25 +9,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js locally (for build)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      # 3️⃣ Install dependencies (for build)
       - name: Install dependencies
         run: npm install
 
-      # 4️⃣ Build project locally
       - name: Build Project
         run: npm run build
 
-      # 5️⃣ Clean up remote deployment directory (NEW CLEANUP STEP)
       - name: Clean up remote deployment directory
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -43,7 +38,6 @@ jobs:
             rm -rf /home/ubuntu/hospital-app/*
             echo "✅ Cleanup complete."
 
-      # 6️⃣ Upload project to EC2 (Now uploads to clean directory)
       - name: Upload project to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -54,10 +48,8 @@ jobs:
           target: "/home/ubuntu/hospital-app"
           port: 22
           timeout: 90s
-          # Since we cleaned the directory in the previous step, overwrite is optional but kept for safety.
           overwrite: true 
 
-      # 7️⃣ EC2 remote deployment (Final deployment and restart)
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
