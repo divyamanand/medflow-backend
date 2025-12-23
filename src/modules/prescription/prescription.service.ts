@@ -11,8 +11,6 @@ export class PrescriptionService {
     @InjectRepository(PrescriptionItem) private itemRepo: Repository<PrescriptionItem>,
   ) {}
 
-  // ============ PRESCRIPTION CRUD ============
-
   async findAll(filter?: any) {
     const qb = this.presRepo
       .createQueryBuilder('p')
@@ -50,7 +48,6 @@ export class PrescriptionService {
     const items = data.items || [];
     delete (data as any).items;
 
-    // Create prescription
     const prescription = this.presRepo.create({
       patient: { id: data.patientId } as any,
       doctor: data.doctorId ? { id: data.doctorId } as any : null,
@@ -62,7 +59,6 @@ export class PrescriptionService {
 
     const savedPrescription = await this.presRepo.save(prescription);
 
-    // Create items if provided
     if (items.length > 0) {
       const now = new Date();
       const itemEntities = items.map(item =>
@@ -113,16 +109,13 @@ export class PrescriptionService {
     const items = data.items;
     delete (data as any).items;
 
-    // Update prescription fields
     const updateData: any = { ...data, updatedAt: new Date() };
     await this.presRepo.update({ id }, updateData);
 
-    // If items provided, replace all items
     if (items !== undefined) {
-      // Delete existing items
+      
       await this.itemRepo.delete({ prescription: { id } as any });
 
-      // Add new items
       if (items.length > 0) {
         const now = new Date();
         const itemEntities = items.map(item =>
@@ -153,8 +146,6 @@ export class PrescriptionService {
     await this.presRepo.delete({ id });
     return { id, removed: true };
   }
-
-  // ============ PRESCRIPTION ITEM CRUD ============
 
   async addItem(prescriptionId: string, data: {
     name: string;

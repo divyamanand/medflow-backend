@@ -13,8 +13,8 @@ export class ItemRequirement {
   id!: string;
 
   @Column({ type: 'uuid' })
-  primaryUserId!: string; // base user.id of requester
-
+  primaryUserId!: string; 
+  
   @Column({ type: 'varchar' })
   kind!: 'equipment' | 'blood';
 

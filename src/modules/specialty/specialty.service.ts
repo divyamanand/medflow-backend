@@ -14,7 +14,6 @@ export class SpecialtyService {
       throw new Error('Code and name are required');
     }
 
-    // Check if code already exists
     const existing = await this.repo.findOne({ where: { code } });
     if (existing) {
       throw new Error(`Specialty with code '${code}' already exists`);
@@ -76,7 +75,6 @@ export class SpecialtyService {
   async update(id: string, data: Partial<Specialty>) {
     const specialty = await this.findOne(id);
 
-    // If updating code, check for conflicts
     if (data.code && data.code !== specialty.code) {
       const existing = await this.repo.findOne({ where: { code: data.code } });
       if (existing) {
@@ -90,8 +88,7 @@ export class SpecialtyService {
 
   async remove(id: string) {
     const specialty = await this.findOne(id);
-    
-    // Check if specialty is assigned to any staff
+  
     const assignmentCount = await this.repo.query(
       'SELECT COUNT(*) as count FROM staff_specialty WHERE "specialtyId" = $1',
       [id],

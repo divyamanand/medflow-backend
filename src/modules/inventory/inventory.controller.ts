@@ -9,8 +9,6 @@ import { Roles } from '../auth/roles.decorator';
 export class InventoryController {
   constructor(private readonly svc: InventoryService) {}
 
-  // ============ ITEM CRUD ============
-
   @Get('inventory')
   @Roles('admin','pharmacist','inventory')
   list(@Query() q: any) {
@@ -18,7 +16,7 @@ export class InventoryController {
     if (q.itemType) filter.itemType = q.itemType;
     if (q.lowStock) filter.lowStock = parseInt(q.lowStock,10);
     if (q.expiryBefore) filter.expiryBefore = q.expiryBefore;
-    if (q.expiry) filter.expiryBefore = q.expiry; // alias
+    if (q.expiry) filter.expiryBefore = q.expiry; 
     return this.svc.listStocks(filter);
   }
 
@@ -75,7 +73,6 @@ export class InventoryController {
     return this.svc.deleteItem(id); 
   }
 
-  // ============ STOCK CRUD ============
 
   @Get('inventory/:itemId/stock')
   @Roles('admin','pharmacist','inventory')
@@ -114,7 +111,6 @@ export class InventoryController {
     return this.svc.deleteStock(stockId);
   }
 
-  // ============ LEGACY/UTILITY ROUTES ============
 
   @Post('prescription/:id/fulfill')
   @Roles('admin','pharmacist','inventory')

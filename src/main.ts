@@ -18,6 +18,6 @@ async function bootstrap() {
   });
   const port = process.env.PORT || 8081;
   await app.listen(port);
-  console.log();
+  // console.log();
 }
 bootstrap();

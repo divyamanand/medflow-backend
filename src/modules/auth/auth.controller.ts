@@ -23,7 +23,6 @@ export class AuthController {
     return this.svc.register(body);
   }
 
-  // Admin/Receptionist sends an invitation to set password later
   @Post('invite')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin','receptionist')
@@ -31,7 +30,6 @@ export class AuthController {
     return this.svc.invite(body);
   }
 
-  // Public endpoint: accept invitation with token and set password
   @Post('accept-invite')
   acceptInvite(@Body() body: any, @Res({ passthrough: true }) res: any) {
     return this.svc.acceptInvite(body, res);
@@ -55,7 +53,6 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   me(@Req() req: any) { return this.svc.me(req); }
 
-  // One-time initializer: create the first admin when no users exist, or with secret
   @Post('bootstrap-admin')
   bootstrapAdmin(@Body() body: any, @Res({ passthrough: true }) res: any) {
     return this.svc.bootstrapAdmin(body, res);

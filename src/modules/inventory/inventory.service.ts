@@ -17,10 +17,8 @@ export class InventoryService {
     @InjectRepository(PrescriptionItem) private presItemRepo: Repository<PrescriptionItem>,
   ) {}
 
-  // ============ ITEM CRUD ============
 
   async listItemsWithAggregates(filter?: any) {
-    // Aggregate total quantity and nearest expiry from stocks
     const qb = this.itemRepo.createQueryBuilder('i')
       .leftJoin(InventoryStock, 's', 's."inventoryItemId" = i.id')
       .select('i.name', 'name')
@@ -41,7 +39,6 @@ export class InventoryService {
     }));
   }
 
-  // Stock-level listing with filters, returns per-stock rows
   async listStocks(filter?: any) {
     const qb = this.stockRepo.createQueryBuilder('s')
       .leftJoinAndSelect('s.inventoryItem', 'i')
@@ -114,10 +111,9 @@ export class InventoryService {
     return items;
   }
 
-  // ============ STOCK CRUD ============
 
   async listStock(itemId: string) {
-    await this.getItem(itemId); // Validate item exists
+    await this.getItem(itemId);
     return this.stockRepo.find({ 
       where: { inventoryItem: { id: itemId } as any },
       order: { expiry: 'ASC', createdAt: 'ASC' }
@@ -130,7 +126,7 @@ export class InventoryService {
     expiry?: string, 
     notes?: string,
   ) {
-    const item = await this.getItem(itemId); // Validate item exists
+    const item = await this.getItem(itemId); 
     
     if (!quantity || quantity <= 0) {
       throw new Error('Quantity must be positive');
@@ -145,7 +141,6 @@ export class InventoryService {
 
     await this.stockRepo.save(stock);
 
-    // Log transaction
     await this.txnRepo.save(this.txnRepo.create({
       inventoryItem: item,
       type: 'in',
@@ -168,7 +163,7 @@ export class InventoryService {
   }
 
   async updateStock(stockId: string, data: { quantity?: number; expiry?: string; notes?: string }) {
-    await this.getStock(stockId); // Validate exists
+    await this.getStock(stockId); 
     await this.stockRepo.update({ id: stockId }, data);
     return this.getStock(stockId);
   }
@@ -176,7 +171,6 @@ export class InventoryService {
   async deleteStock(stockId: string) {
     const stock = await this.getStock(stockId);
     
-    // Log transaction for removed stock
     await this.txnRepo.save(this.txnRepo.create({
       inventoryItem: stock.inventoryItem,
       type: 'out',
@@ -188,7 +182,6 @@ export class InventoryService {
     return { id: stockId, removed: true };
   }
 
-  // ============ UTILITY METHODS ============
 
   async dispenseItem(itemId: string, quantity: number, referenceId?: string) {
     const item = await this.getItem(itemId);
@@ -196,8 +189,6 @@ export class InventoryService {
     if (!quantity || quantity <= 0) {
       throw new Error('Quantity must be positive');
     }
-
-    // Get stocks ordered by expiry (FIFO)
     const stocks = await this.stockRepo.find({
       where: { inventoryItem: { id: itemId } as any },
       order: { expiry: 'ASC', createdAt: 'ASC' }
@@ -222,7 +213,6 @@ export class InventoryService {
       throw new Error(`Insufficient stock. Short by ${remaining} units.`);
     }
 
-    // Log transaction
     await this.txnRepo.save(this.txnRepo.create({
       inventoryItem: item,
       type: 'out',
@@ -236,7 +226,6 @@ export class InventoryService {
   async adjustItem(itemId: string, body: { quantity: number; reason?: string; refPrescriptionItemId?: string }) {
     const item = await this.getItem(itemId);
 
-    // Log transaction
     await this.txnRepo.save(this.txnRepo.create({
       inventoryItem: item,
       type: 'adjust',
@@ -244,7 +233,6 @@ export class InventoryService {
       reason: body.reason || 'Manual adjustment',
     }));
 
-    // If positive adjustment, create a new stock entry
     if (body.quantity > 0) {
       await this.stockRepo.save(this.stockRepo.create({
         inventoryItem: item,
@@ -253,7 +241,6 @@ export class InventoryService {
         notes: null,
       }));
     } else if (body.quantity < 0) {
-      // If negative, try to dispense
       await this.dispenseItem(itemId, Math.abs(body.quantity), body.reason);
     }
 
@@ -272,7 +259,6 @@ export class InventoryService {
       return { removed: 0, ids: [] };
     }
 
-    // Log transactions for expired stock removal
     for (const stock of expired) {
       await this.txnRepo.save(this.txnRepo.create({
         inventoryItem: stock.inventoryItem,
@@ -300,7 +286,6 @@ export class InventoryService {
     return qb.getMany();
   }
 
-  // Placeholder for prescription fulfillment
   async fulfillPrescription(prescriptionId: string) {
     return { id: prescriptionId, status: 'not_implemented' };
   }

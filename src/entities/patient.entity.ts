@@ -20,7 +20,6 @@ export class Patient {
   @DeleteDateColumn({ nullable: true })
   deletedAt?: Date | null;
 
-  // Link to base user for authentication/authorization
   @OneToOne(() => User, (u: User) => u.patient, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'userId', referencedColumnName: 'id', foreignKeyConstraintName: 'fk_patient_user' })
   user?: User | null;

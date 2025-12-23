@@ -30,7 +30,7 @@ export class Appointment {
   cancelReason!: string | null;
 
   @Column({ type: 'text', nullable: true })
-  issues!: string | null; // comma separated issues
+  issues!: string | null;
 
   @CreateDateColumn()
   createdAt!: Date;

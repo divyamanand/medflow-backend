@@ -30,7 +30,6 @@ export class Staff {
   @OneToMany(() => Leave, (l) => l.staff)
   leaves!: Leave[];
 
-  // Link to base user for authentication/authorization
   @OneToOne(() => User, (u: User) => u.staff, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'userId', referencedColumnName: 'id', foreignKeyConstraintName: 'fk_staff_user' })
   user?: User | null;

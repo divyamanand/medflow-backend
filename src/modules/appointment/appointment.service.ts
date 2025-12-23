@@ -41,7 +41,6 @@ export class AppointmentService {
     const specIds = Array.isArray(payload?.specialty_ids) ? payload!.specialty_ids : [];
     if (!issues.length && !specIds.length) return [];
 
-    // Load specialties from DB (either provided ids or all)
     let specialties = [] as { id: string; name: string }[];
     if (specIds.length) {
       specialties = await this.specialtyRepo
@@ -52,11 +51,9 @@ export class AppointmentService {
       specialties = await this.specialtyRepo.createQueryBuilder('s').select(['s.id', 's.name']).getMany();
     }
 
-    // Ask the LLM to infer which specialties are required for the provided issues
     const inferred = await this.llmService.inferSpecialties(issues, specialties as any);
     if (!inferred || !inferred.length) return [];
 
-    // Fetch doctors and their specialties
     const rows = await this.repo.query(
       `SELECT s.id as "doctorId", json_agg(json_build_object('id', sp.id, 'name', sp.name) ORDER BY ss."primary" DESC) as specialties
        FROM staff s
@@ -68,7 +65,6 @@ export class AppointmentService {
       [],
     );
 
-    // Score doctors by how many of the inferred specialties they cover
     const lowerInferred = inferred.map((x) => x.toLowerCase());
     const results: Array<{ doctorId: string; score: number; specialties: Array<{ id: string; name: string }> }> = [];
     for (const r of rows) {
@@ -78,8 +74,6 @@ export class AppointmentService {
       const score = lowerInferred.length ? matched.length / lowerInferred.length : 0;
       if (score > 0) results.push({ doctorId: r.doctorId, score, specialties: specs });
     }
-
-    // Sort by score desc and return
     return results.sort((a, b) => b.score - a.score).map((x) => ({ doctorId: x.doctorId, score: x.score, specialties: x.specialties }));
   }
 
@@ -88,7 +82,6 @@ export class AppointmentService {
     const results: Array<{ startDatetime: Date; endDatetime: Date; slotDurationMinutes: number }>= [];
     const now = new Date();
 
-    // If date is provided, use that specific date; otherwise search forward
     let targetDate: Date | null = null;
     let searchSingleDay = false;
     if (dateFilter) {
@@ -97,11 +90,10 @@ export class AppointmentService {
       searchSingleDay = true;
     }
 
-    // Load timings for this doctor
+
     const timings = await this.timingsRepo.find({ where: { staff: { id: doctorId } as any, isAvailable: true } });
     if (!timings.length) return results;
 
-    // Helper: convert weekday 0-6 to next date occurrences up to 30 days
     const maxDays = searchSingleDay ? 1 : 30;
     let dayCursor = 0;
     while (results.length < targetCount && dayCursor < maxDays) {
@@ -117,13 +109,10 @@ export class AppointmentService {
         const slotDuration = 15;
         const dayStart = this.combineDateTime(date, t.startTime);
         const dayEnd = this.combineDateTime(date, t.endTime);
-        // If today (or target date is today), move start forward to now
         let slotStart = new Date(Math.max(dayStart.getTime(), searchSingleDay ? dayStart.getTime() : now.getTime()));
-        // If searching specific date and it's in the past relative to now, still start from dayStart
         if (searchSingleDay && date.toDateString() === now.toDateString()) {
           slotStart = new Date(Math.max(dayStart.getTime(), now.getTime()));
         }
-        // Align to next slot boundary
         slotStart = this.alignToSlot(slotStart, dayStart, slotDuration);
 
         while (slotStart < dayEnd && results.length < targetCount) {
@@ -144,7 +133,6 @@ export class AppointmentService {
   }
 
   private combineDateTime(date: Date, timeStr: string): Date {
-    // timeStr expected HH:MM or HH:MM:SS
     const [h, m, s] = timeStr.split(':').map((v) => parseInt(v || '0', 10));
     const d = new Date(date);
     d.setHours(h || 0, m || 0, s || 0, 0);
@@ -159,7 +147,6 @@ export class AppointmentService {
   }
 
   private async isSlotAvailable(doctorId: string, start: Date, end: Date): Promise<boolean> {
-    // Leaves overlap if start < leave.end AND end > leave.start
     const leaveOverlap = await this.leaveRepo.createQueryBuilder('l')
       .where('l.staffId = :did', { did: doctorId })
       .andWhere('l.startDate <= :endDate', { endDate: end.toISOString().slice(0,10) })
@@ -167,7 +154,6 @@ export class AppointmentService {
       .getCount();
     if (leaveOverlap > 0) return false;
 
-    // Appointments overlap if start < appt.end AND end > appt.start and status not cancelled/no_show
     const busyStatuses: string[] = ['scheduled','confirmed','checkedIn','completed'];
     const apptOverlap = await this.repo.createQueryBuilder('a')
       .where('a.doctorId = :did', { did: doctorId })

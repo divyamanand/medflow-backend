@@ -9,8 +9,6 @@ import { Roles } from '../auth/roles.decorator';
 export class PrescriptionController {
   constructor(private readonly svc: PrescriptionService) {}
 
-  // ============ PRESCRIPTION CRUD ============
-
   @Get()
   @Roles('admin','doctor','pharmacist','patient')
   list(@Query() q: any, @Req() req: any) {
@@ -20,7 +18,6 @@ export class PrescriptionController {
     if (q.from) filter.from = q.from;
     if (q.to) filter.to = q.to;
     
-    // Patient can only view their own prescriptions
     if (req.user.role === 'patient') {
       filter.patientId = req.user.patientId;
     }
@@ -31,7 +28,6 @@ export class PrescriptionController {
   @Post()
   @Roles('admin','doctor')
   create(@Body() body: any, @Req() req: any) {
-    // If doctor, set doctorId to their staffId
     if (req.user.role === 'doctor') {
       body.doctorId = req.user.staffId;
     }
@@ -43,8 +39,7 @@ export class PrescriptionController {
   async getOne(@Param('id') id: string, @Req() req: any) {
     const prescription = await this.svc.findOne(id);
     if (!prescription) throw new NotFoundException('Prescription not found');
-    
-    // Authorization check for patient
+  
     if (req.user.role === 'patient') {
       if (prescription.patient?.id !== req.user.patientId) {
         throw new ForbiddenException('Not allowed');
@@ -57,7 +52,6 @@ export class PrescriptionController {
   @Put(':id')
   @Roles('admin','doctor')
   async update(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    // Doctor can only update their own prescriptions
     if (req.user.role === 'doctor') {
       const existing = await this.svc.findOne(id);
       if (!existing) throw new NotFoundException('Prescription not found');
@@ -71,7 +65,6 @@ export class PrescriptionController {
   @Delete(':id')
   @Roles('admin','doctor')
   async remove(@Param('id') id: string, @Req() req: any) {
-    // Doctor can only delete their own prescriptions
     if (req.user.role === 'doctor') {
       const existing = await this.svc.findOne(id);
       if (!existing) throw new NotFoundException('Prescription not found');
@@ -82,12 +75,9 @@ export class PrescriptionController {
     return this.svc.remove(id);
   }
 
-  // ============ PRESCRIPTION ITEM CRUD ============
-
   @Post(':prescriptionId/items')
   @Roles('admin','doctor')
   async addItem(@Param('prescriptionId') prescriptionId: string, @Body() body: any, @Req() req: any) {
-    // Doctor can only add items to their own prescriptions
     if (req.user.role === 'doctor') {
       const existing = await this.svc.findOne(prescriptionId);
       if (!existing) throw new NotFoundException('Prescription not found');
@@ -106,7 +96,6 @@ export class PrescriptionController {
     @Body() body: any,
     @Req() req: any
   ) {
-    // Doctor can only update items in their own prescriptions
     if (req.user.role === 'doctor') {
       const existing = await this.svc.findOne(prescriptionId);
       if (!existing) throw new NotFoundException('Prescription not found');
@@ -124,7 +113,6 @@ export class PrescriptionController {
     @Param('itemId') itemId: string,
     @Req() req: any
   ) {
-    // Doctor can only delete items from their own prescriptions
     if (req.user.role === 'doctor') {
       const existing = await this.svc.findOne(prescriptionId);
       if (!existing) throw new NotFoundException('Prescription not found');

@@ -8,14 +8,14 @@ export class RefreshToken {
 
   @Index('idx_refresh_user')
   @Column({ type: 'varchar' })
-  userId!: string; // patient.id or staff.id
+  userId!: string; 
 
   @Column({ type: 'enum', enum: UserRole })
-  userRole!: UserRole; // constrained to UserRole values
+  userRole!: UserRole; 
 
   @Index('idx_refresh_hash', { unique: true })
   @Column({ type: 'varchar' })
-  tokenHash!: string; // sha256(refreshToken)
+  tokenHash!: string;
 
   @Column({ type: 'timestamp' })
   expiresAt!: Date;

@@ -11,7 +11,6 @@ import { StaffRequirement } from '../../entities/staff-requirement.entity';
 import { RequirementStatus } from '../../entities/item-requirement.entity';
 
 function withinNow(startTime: string, endTime: string, nowMinutes: number): boolean {
-  // time strings HH:MM[:SS]
   const [sh, sm] = startTime.split(':').map(v => parseInt(v || '0',10));
   const [eh, em] = endTime.split(':').map(v => parseInt(v || '0',10));
   const startM = sh * 60 + sm;
@@ -51,17 +50,13 @@ export class StaffService {
       const staff = this.repo.create({ notes: notes ?? null, user: { id: user.id } as any });
       return this.repo.save(staff);
     }
-    // Create staff profile only; invite later to set password
     const staff = this.repo.create({ notes: notes ?? null });
     return this.repo.save(staff);
   }
   async findAll(filter?: any) {
-    // Basic load with user relation
     let rows = await this.repo.find({ relations: ['user'] });
     if (!filter) return rows;
-    // role filter (role stored on user)
     if (filter.role) rows = rows.filter(r => r.user?.role === filter.role);
-    // specialty filter via raw query for efficiency
     if (filter.specialtyId) {
       const specStaffIds = await this.repo.query(
         'SELECT staffId FROM staff_specialty WHERE specialtyId = $1',
@@ -70,11 +65,10 @@ export class StaffService {
       const allowedIds = new Set(specStaffIds.map((r: any) => r.staffid || r.staffId));
       rows = rows.filter(r => allowedIds.has(r.id));
     }
-    // onLeave / isAvailable determination (simplified)
+
     const today = new Date();
     const todayStr = today.toISOString().slice(0,10);
     if (filter.onLeave || filter.isAvailable) {
-      // Preload leave and timings maps
       const staffIds = rows.map(r => r.id);
       if (staffIds.length) {
         const leaves = await this.leaveRepo.createQueryBuilder('l')
@@ -103,7 +97,6 @@ export class StaffService {
   }
   findOne(id: string) { return this.repo.findOne({ where: { id }, relations: ['user'] }); }
   async update(id: string, data: any) {
-    // Split user vs staff fields
     const staffUpdates: Partial<Staff> = {};
     if (typeof data.notes !== 'undefined') staffUpdates.notes = data.notes;
     if (Object.keys(staffUpdates).length) await this.repo.update({ id }, staffUpdates);
@@ -187,7 +180,6 @@ export class StaffService {
   getTimings(staffId: string) { return this.timingsRepo.find({ where: { staff: { id: staffId } as any } }); }
 
   async upsertTimings(staffId: string, entries: Partial<Timings>[]) {
-    // Append new timings; update existing ones if id provided. Do NOT delete previous timings.
     const created: Timings[] = [];
     const updated: Timings[] = [];
 
@@ -250,27 +242,22 @@ export class StaffService {
   async softDelete(id: string) {
     const staff = await this.repo.findOne({ where: { id }, relations: ['user'] });
     if (!staff) return { id, removed: false } as any;
-
-    // Handle ongoing fulfillments: those without endAt
           const ongoing = await this.staffFulfillRepo.find({ where: { staff: { id } as any, endAt: IsNull() } });
     if (ongoing.length) {
-      // Group by requirementId counts
       const counts: Record<string, number> = {};
       for (const f of ongoing) {
         const rid = (f as any).requirement?.id || (f as any).requirementId;
         if (rid) counts[rid] = (counts[rid] || 0) + 1;
       }
-      // Delete fulfillments
       const ids = ongoing.map(f => f.id);
       await this.staffFulfillRepo.delete(ids);
-      // Adjust requirements fulfilledCount and status
+  
       const requirementIds = Object.keys(counts);
       if (requirementIds.length) {
         const reqs = await this.staffReqRepo.find({ where: { id: In(requirementIds) } });
         for (const req of reqs) {
           const dec = counts[req.id] || 0;
           req.fulfilledCount = Math.max((req.fulfilledCount || 0) - dec, 0);
-          // Recompute status based on remaining fulfillment rows
           const remainingCount = await this.staffFulfillRepo.count({ where: { requirement: { id: req.id } as any } });
           if (remainingCount === 0) req.status = RequirementStatus.Open;
           else if (remainingCount < req.quantity) req.status = RequirementStatus.InProgress;
@@ -280,7 +267,6 @@ export class StaffService {
       }
     }
     if (staff.user?.id) {
-      // detach user reference before soft delete
       await this.repo.createQueryBuilder()
         .update(Staff)
         .set({ user: null as any })
@@ -362,7 +348,6 @@ export class StaffService {
   }
 
   async addSpecialty(staffId: string, specialtyId: string, primary: boolean = false) {
-    // Validate specialty exists
     console.log(staffId, specialtyId, primary)
     const specialtyExists = await this.repo.query(
       'SELECT 1 FROM specialty WHERE id = $1 LIMIT 1',
@@ -372,7 +357,6 @@ export class StaffService {
       throw new Error(`Specialty with id ${specialtyId} does not exist`);
     }
 
-    // Check if already assigned
     const existing = await this.repo.query(
       'SELECT 1 FROM staff_specialty WHERE "staffId" = $1 AND "specialtyId" = $2 LIMIT 1',
       [staffId, specialtyId],
@@ -381,7 +365,6 @@ export class StaffService {
       throw new Error('Specialty already assigned to this staff member');
     }
 
-    // If setting as primary, unset other primary specialties
     if (primary) {
       await this.repo.query(
         'UPDATE staff_specialty SET "primary" = false WHERE "staffId" = $1',
@@ -389,7 +372,6 @@ export class StaffService {
       );
     }
 
-    // Insert the specialty assignment
     const result = await this.repo.query(
       'INSERT INTO staff_specialty ("staffId", "specialtyId", "primary") VALUES ($1, $2, $3) RETURNING id',
       [staffId, specialtyId, primary],

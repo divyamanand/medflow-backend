@@ -44,7 +44,6 @@ export class PatientService {
       const patient = this.repo.create({ user: { id: user.id } as any, primaryPhysician: primaryPhysicianId ? ({ id: primaryPhysicianId } as any) : null });
       return this.repo.save(patient);
     }
-    // Create patient profile only; invite later to set password
     const patient = this.repo.create({ primaryPhysician: primaryPhysicianId ? ({ id: primaryPhysicianId } as any) : null });
     return this.repo.save(patient);
   }

@@ -14,19 +14,19 @@ export class PrescriptionItem {
   name!: string;
 
   @Column()
-  dosage!: string; // e.g., 500mg
+  dosage!: string; 
 
   @Column()
-  duration!: string; // e.g., 5 days
+  duration!: string; 
 
   @Column({ type: 'int' })
   quantity!: number;
 
   @Column({ type: 'varchar', nullable: true })
-  dayDivide!: string | null; // e.g., 101, 001, 111
+  dayDivide!: string | null; 
 
   @Column({ type: 'varchar', nullable: true })
-  method!: string | null; // before food | after food
+  method!: string | null; 
 
   @Column({ type: 'timestamp', nullable: true })
   createdAt!: Date | null;

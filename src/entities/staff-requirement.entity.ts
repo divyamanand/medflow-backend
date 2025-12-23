@@ -7,7 +7,7 @@ export class StaffRequirement {
   id!: string;
 
   @Column({ type: 'uuid' })
-  primaryUserId!: string; // base user.id of requester
+  primaryUserId!: string; 
 
   @Column({ type: 'varchar' })
   roleNeeded!: string;

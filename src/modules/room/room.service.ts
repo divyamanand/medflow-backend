@@ -23,7 +23,6 @@ export class RoomService {
   async update(id: string, data: Partial<Room>) { const payload = this.normalizeRoomData(data as any); await this.repo.update({ id }, payload); return this.repo.findOne({ where: { id } }); }
   async remove(id: string) { await this.repo.delete({ id }); return { id, removed: true } as any; }
   async book(id: string, body: { appointmentId: string; start: string; end: string }) {
-    // Simplified: mark room reserved
     await this.repo.update({ id }, { status: RoomStatus.Reserved });
     return this.repo.findOne({ where: { id } });
   }

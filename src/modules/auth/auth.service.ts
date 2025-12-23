@@ -30,7 +30,7 @@ export class AuthService {
     if (!user) return null;
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return null;
-    // Determine domain id for token subject by user.type (fallback to role)
+    
     const isPatientType = user.role === UserRole.Patient;
     if (isPatientType) {
       const patient = await this.patientRepo.findOne({ where: { user: { id: user.id } as any } });
@@ -39,7 +39,6 @@ export class AuthService {
     }
     let staff = await this.staffRepo.findOne({ where: { user: { id: user.id } as any } });
     if (!staff) {
-      // Auto-create staff profile for admin (or other staff role) if missing
       if (user.role === UserRole.Admin || user.role !== UserRole.Patient) {
         staff = await this.staffRepo.save(this.staffRepo.create({ user: { id: user.id } as any }));
       }
@@ -274,7 +273,6 @@ export class AuthService {
 }
 
 function parseDurationMs(input: string): number {
-  // crude parser: supports s,m,h,d suffixes
   const m = String(input).match(/^(\d+)([smhd])$/);
   if (!m) return 15 * 60 * 1000;
   const n = parseInt(m[1], 10);
